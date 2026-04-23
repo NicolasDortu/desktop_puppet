@@ -1,45 +1,78 @@
 #include "input.h"
+#include "config.h"
 #include "pet.h"
+#include "menu.h"
 
 #include "raylib.h"
 
 static Vector2 dragOffset = {0, 0};
 static Vector2 prevMouse = {0, 0};
 
-void DragPet(Pet *pet)
+MouseState GetMouseState(Pet *pet)
 {
-    // Get screen-space mouse position (avoids jitter from moving window)
     WPOINT cursorPos;
     GetCursorPos(&cursorPos);
     Vector2 screenMouse = {(float)cursorPos.x, (float)cursorPos.y};
 
-    // Check if mouse is over the ball (screen space)
     float dx = screenMouse.x - pet->position.x;
     float dy = screenMouse.y - pet->position.y;
-    bool mouseOver = (dx * dx + dy * dy) <= pet->radius * pet->radius;
 
-    // Start dragging
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && mouseOver)
+    return (MouseState){
+        .screenMouse = screenMouse,
+        .mouseOver = (dx * dx + dy * dy) <= pet->radius * pet->radius};
+}
+
+void DragPet(Pet *pet)
+{
+    MouseState ms = GetMouseState(pet);
+
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && ms.mouseOver)
     {
         pet->isDragging = true;
-        dragOffset.x = pet->position.x - screenMouse.x;
-        dragOffset.y = pet->position.y - screenMouse.y;
+        dragOffset.x = pet->position.x - ms.screenMouse.x;
+        dragOffset.y = pet->position.y - ms.screenMouse.y;
     }
 
-    // Stop dragging
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
-    {
         pet->isDragging = false;
-    }
 
     if (pet->isDragging)
     {
-        pet->position.x = screenMouse.x + dragOffset.x;
-        pet->position.y = screenMouse.y + dragOffset.y;
-        // Track mouse velocity so the ball can be "thrown"
-        pet->velocity.x = screenMouse.x - prevMouse.x;
-        pet->velocity.y = screenMouse.y - prevMouse.y;
+        pet->position.x = ms.screenMouse.x + dragOffset.x;
+        pet->position.y = ms.screenMouse.y + dragOffset.y;
+        pet->velocity.x = ms.screenMouse.x - prevMouse.x;
+        pet->velocity.y = ms.screenMouse.y - prevMouse.y;
     }
 
-    prevMouse = screenMouse;
+    prevMouse = ms.screenMouse;
+}
+
+void ToggleMenu(Pet *pet, Menu *menu)
+{
+    MouseState ms = GetMouseState(pet);
+
+    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+        menu->isOpen = !menu->isOpen;
+}
+
+int GetClickedMenuItem(Menu *menu, Pet *pet)
+{
+    if (!menu->isOpen)
+        return -1;
+    if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        return -1;
+
+    Vector2 m = GetMousePosition();
+    int menuX = (int)(2 * (pet->radius + PADDING));
+
+    for (int i = 0; i < menu->itemCount; i++)
+    {
+        int itemY = MENU_PADDING + i * MENU_ITEM_HEIGHT;
+        if (m.x >= menuX && m.x <= menuX + MENU_WIDTH && m.y >= itemY && m.y <= itemY + MENU_ITEM_HEIGHT)
+        {
+            menu->isOpen = false;
+            return menu->items[i].id;
+        }
+    }
+    return -1;
 }

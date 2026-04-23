@@ -2,6 +2,7 @@
 #define INPUT_H
 
 #include "pet.h"
+#include "menu.h"
 
 // Declare only what we need from Win32 to avoid conflicts with raylib
 typedef struct
@@ -10,6 +11,15 @@ typedef struct
 } WPOINT;
 __declspec(dllimport) int __stdcall GetCursorPos(WPOINT *lpPoint);
 
-void DragPet(Pet *pet);
+typedef struct // State of the mouse
+{
+    Vector2 screenMouse;
+    bool mouseOver;
+} MouseState;
+
+// Functions
+void DragPet(Pet *pet);                       // Drag the pet with left click
+void ToggleMenu(Pet *pet, Menu *menu);        // Right-click pet to open/close
+int GetClickedMenuItem(Menu *menu, Pet *pet); // Returns clicked item id, or -1
 
 #endif

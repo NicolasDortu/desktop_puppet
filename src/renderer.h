@@ -2,9 +2,17 @@
 #define RENDERER_H
 
 #include "pet.h"
+#include "menu.h"
 
-int GetWinSize(Pet *pet);
+typedef struct
+{
+    int screenWidth;
+    int screenHeight;
+} ScreenWidthHeight;
 
-void RenderGame(Pet *pet);
+// functions
+ScreenWidthHeight SetWindow(Pet *pet);
+void RenderPet(Pet *pet, Menu *menu);
+void RenderMenu(Menu *menu, Pet *pet);
 
 #endif
