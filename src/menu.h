@@ -9,7 +9,7 @@
 #define MENU_ITEM_HEIGHT 30
 #define MENU_PADDING 5
 
-// IDs let us know which item was clicked
+// --- Menu Definition ---
 enum MenuItemId
 {
     MENU_ITEM_RED,
@@ -18,7 +18,7 @@ enum MenuItemId
     MENU_ITEM_COUNT
 };
 
-typedef struct
+typedef struct // id is used to know which item was clicked
 {
     int id;
     const char *action;
@@ -32,7 +32,7 @@ typedef struct
     int itemCount;
 } Menu;
 
-// Functions
+// --- Functions ---
 Menu CreateMenu();                      // Build the menu with its items
 void MenuActions(Menu *menu, Pet *pet); // Set actions in the menu
 

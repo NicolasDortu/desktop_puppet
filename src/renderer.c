@@ -7,7 +7,7 @@
 
 ScreenWidthHeight SetWindow(Pet *pet)
 {
-    int winSize = (int)(2 * (pet->radius + PADDING));
+    int winSize = (int)(2 * pet->radius);
 
     // Transparent, borderless, always-on-top window sized to the ball
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
@@ -18,23 +18,27 @@ ScreenWidthHeight SetWindow(Pet *pet)
         .screenHeight = GetMonitorHeight(GetCurrentMonitor())};
 }
 
-void RenderPet(Pet *pet, Menu *menu)
+void UpdateWindow(Pet *pet, Menu *menu)
 {
-    int petBox = (int)(2 * (pet->radius + PADDING));
-    int menuW = menu->isOpen ? MENU_WIDTH : 0;
+    int petBox = (int)(2 * pet->radius);
     int menuH = menu->isOpen ? (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) : 0;
+    int menuW = menu->isOpen ? (MENU_WIDTH + MENU_PADDING) : 0;
+    int overflow = (petBox - menuH < 0) ? menuH - petBox : 0;
 
-    // Window grows wider when the menu is open; height = max(pet box, menu height)
-    int winW = petBox + menuW;
-    int winH = (menuH > petBox) ? menuH : petBox;
-
-    SetWindowSize(winW, winH);
+    SetWindowSize(petBox + menuW, petBox + overflow);
     SetWindowPosition(
-        (int)(pet->position.x - pet->radius - PADDING),
-        (int)(pet->position.y - pet->radius - PADDING));
+        (int)(pet->position.x - pet->radius),
+        (int)(pet->position.y - pet->radius) - overflow);
+}
 
-    // Pet stays at the same window-local spot — top-left corner
-    DrawCircleV((Vector2){pet->radius + PADDING, pet->radius + PADDING},
+// TODO: renamed into RenderWindow and add _RenderMenu into this function -> Make only one function that will manage all
+void RenderWindow(Pet *pet, Menu *menu)
+{
+    int petBox = (int)(2 * pet->radius);
+    int menuH = menu->isOpen ? (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) : 0;
+    int overflow = (petBox - menuH < 0) ? menuH - petBox : 0;
+
+    DrawCircleV((Vector2){pet->radius, pet->radius + overflow},
                 pet->radius, pet->color);
 }
 
@@ -43,18 +47,15 @@ void RenderMenu(Menu *menu, Pet *pet)
     if (!menu->isOpen)
         return;
 
-    int petBox = (int)(2 * (pet->radius + PADDING));
+    int petBox = (int)(2 * pet->radius);
+    int h = (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) - 1; // -1 otherwise the bottom line is hided by the window limit
+    int overflow = (petBox - h < 0) ? h - petBox : 0;
+    int x = petBox + MENU_PADDING;
+    int y = petBox - h + overflow;
 
-    // Menu panel sits to the right of the pet box, in window-local coords
-    int x = petBox;
-    int y = 0;
-    int h = menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING;
-
-    // Background
     DrawRectangle(x, y, MENU_WIDTH, h, (Color){40, 40, 40, 230});
     DrawRectangleLines(x, y, MENU_WIDTH, h, LIGHTGRAY);
 
-    // One row per item
     for (int i = 0; i < menu->itemCount; i++)
     {
         int itemY = y + MENU_PADDING + i * MENU_ITEM_HEIGHT;

@@ -1,9 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// --- Window / Ball ---
-#define PADDING 10.0f
-
 // --- Physics ---
 // Default physics value
 #define DEFAULT_GRAVITY 0.5f
@@ -22,4 +19,4 @@ typedef struct
 // --- Engine ---
 #define TARGET_FPS 60
 
-#endif // CONFIG_H
+#endif

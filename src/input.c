@@ -55,6 +55,7 @@ void ToggleMenu(Pet *pet, Menu *menu)
         menu->isOpen = !menu->isOpen;
 }
 
+// TODO: removed the hardcoded logic to make it more customizable
 int GetClickedMenuItem(Menu *menu, Pet *pet)
 {
     if (!menu->isOpen)
@@ -63,7 +64,7 @@ int GetClickedMenuItem(Menu *menu, Pet *pet)
         return -1;
 
     Vector2 m = GetMousePosition();
-    int menuX = (int)(2 * (pet->radius + PADDING));
+    int menuX = (int)(2 * pet->radius);
 
     for (int i = 0; i < menu->itemCount; i++)
     {

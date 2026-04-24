@@ -12,7 +12,8 @@ typedef struct
 
 // functions
 ScreenWidthHeight SetWindow(Pet *pet);
-void RenderPet(Pet *pet, Menu *menu);
+void UpdateWindow(Pet *pet, Menu *menu);
+void RenderWindow(Pet *pet, Menu *menu);
 void RenderMenu(Menu *menu, Pet *pet);
 
 #endif

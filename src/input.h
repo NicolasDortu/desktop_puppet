@@ -5,6 +5,7 @@
 #include "menu.h"
 
 // Declare only what we need from Win32 to avoid conflicts with raylib
+// TODO: verify is the function is really necessary -> Is there another way to get the accelaration?
 typedef struct
 {
     long x, y;

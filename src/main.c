@@ -21,16 +21,17 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        // TODO: mettre les args dans le bon ordre
         DragPet(&ball);
         ToggleMenu(&ball, &menu);
         MenuActions(&menu, &ball);
-
+        UpdateWindow(&ball, &menu);
         if (!ball.isDragging)
             ApplyPhysics(&ball, win.screenWidth, win.screenHeight);
 
         BeginDrawing();
         ClearBackground(BLANK);
-        RenderPet(&ball, &menu);
+        RenderWindow(&ball, &menu);
         RenderMenu(&menu, &ball);
         EndDrawing();
     }

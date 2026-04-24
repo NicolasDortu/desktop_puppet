@@ -9,7 +9,7 @@ Pet CreatePet(const char *name, enum PetType type, Color color, float radius, Ve
 {
     Pet pet;
     strncpy(pet.name, name, sizeof(pet.name) - 1);
-    pet.name[sizeof(pet.name) - 1] = '\0'; // null terminate it
+    pet.name[sizeof(pet.name) - 1] = '\0';
     pet.petType = type;
     pet.color = color;
     pet.radius = radius;

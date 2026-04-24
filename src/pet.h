@@ -26,4 +26,4 @@ typedef struct
 
 Pet CreatePet(const char *name, enum PetType type, Color color, float radius, Vector2 startPos);
 
-#endif // PET_H
+#endif
