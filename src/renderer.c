@@ -1,65 +1,65 @@
 #include "renderer.h"
-#include "config.h"
-#include "pet.h"
+#include "puppet.h"
 #include "menu.h"
 
 #include "raylib.h"
 
-ScreenWidthHeight SetWindow(Pet *pet)
+// -- Theme --
+static const Color MENU_BG_COLOR = {40, 40, 40, 230};
+#define MENU_BORDER_COLOR LIGHTGRAY
+#define MENU_TEXT_COLOR RAYWHITE
+
+// -- Window --
+void InitPuppetWindow(Puppet *pup)
 {
-    int winSize = (int)(2 * pet->radius);
+    int winSize = (int)(2 * pup->radius);
 
-    // Transparent, borderless, always-on-top window sized to the ball
+    // Transparent, borderless, always-on-top window sized to the puppet
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
-    InitWindow(winSize, winSize, "Desktop Toy");
+    InitWindow(winSize, winSize, "Desktop Puppet");
+}
 
+ScreenWidthHeight GetScreenSize(void)
+{
     return (ScreenWidthHeight){
         .screenWidth = GetMonitorWidth(GetCurrentMonitor()),
         .screenHeight = GetMonitorHeight(GetCurrentMonitor())};
 }
 
-void UpdateWindow(Pet *pet, Menu *menu)
+void UpdateWindow(Puppet *pup, Menu *menu)
 {
-    int petBox = (int)(2 * pet->radius);
-    int menuH = menu->isOpen ? (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) : 0;
-    int menuW = menu->isOpen ? (MENU_WIDTH + MENU_PADDING) : 0;
-    int overflow = (petBox - menuH < 0) ? menuH - petBox : 0;
+    MenuLayout layout = ComputeMenuLayout(pup, menu);
 
-    SetWindowSize(petBox + menuW, petBox + overflow);
+    SetWindowSize(layout.pupBox + layout.menuW, layout.pupBox + layout.overflow);
     SetWindowPosition(
-        (int)(pet->position.x - pet->radius),
-        (int)(pet->position.y - pet->radius) - overflow);
+        (int)(pup->position.x - pup->radius),
+        (int)(pup->position.y - pup->radius) - layout.overflow);
 }
 
-// TODO: renamed into RenderWindow and add _RenderMenu into this function -> Make only one function that will manage all
-void RenderWindow(Pet *pet, Menu *menu)
+// -- Entities --
+void DrawPuppet(Puppet *pup, MenuLayout layout)
 {
-    int petBox = (int)(2 * pet->radius);
-    int menuH = menu->isOpen ? (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) : 0;
-    int overflow = (petBox - menuH < 0) ? menuH - petBox : 0;
-
-    DrawCircleV((Vector2){pet->radius, pet->radius + overflow},
-                pet->radius, pet->color);
+    DrawCircleV((Vector2){pup->radius, pup->radius + layout.overflow},
+                pup->radius, pup->color);
 }
 
-void RenderMenu(Menu *menu, Pet *pet)
+void DrawMenu(Menu *menu, MenuLayout layout)
 {
     if (!menu->isOpen)
         return;
 
-    int petBox = (int)(2 * pet->radius);
-    int h = (menu->itemCount * MENU_ITEM_HEIGHT + 2 * MENU_PADDING) - 1; // -1 otherwise the bottom line is hided by the window limit
-    int overflow = (petBox - h < 0) ? h - petBox : 0;
-    int x = petBox + MENU_PADDING;
-    int y = petBox - h + overflow;
+    DrawRectangle(layout.x, layout.y, menu->width, layout.menuH, MENU_BG_COLOR); // menu background
 
-    DrawRectangle(x, y, MENU_WIDTH, h, (Color){40, 40, 40, 230});
-    DrawRectangleLines(x, y, MENU_WIDTH, h, LIGHTGRAY);
-
-    for (int i = 0; i < menu->itemCount; i++)
+    for (int i = 0; i < menu->itemCount; i++) // menu
     {
-        int itemY = y + MENU_PADDING + i * MENU_ITEM_HEIGHT;
-        DrawRectangle(x + MENU_PADDING, itemY + 5, 16, 16, menu->items[i].color);
-        DrawText(menu->items[i].action, x + MENU_PADDING + 24, itemY + 7, 18, RAYWHITE);
+        Rectangle r = GetMenuItemRect(menu, layout, i);
+        int iconX = (int)r.x;
+        int iconY = (int)r.y + menu->padding;
+        DrawRectangle(iconX, iconY, menu->iconSize, menu->iconSize, menu->items[i].color);
+        DrawText(menu->items[i].action,
+                 iconX + menu->iconSize + menu->padding,
+                 iconY,
+                 menu->iconSize,
+                 MENU_TEXT_COLOR);
     }
 }

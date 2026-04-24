@@ -1,26 +1,26 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "pet.h"
+#include "puppet.h"
 #include "menu.h"
 
-// Declare only what we need from Win32 to avoid conflicts with raylib
-// TODO: verify is the function is really necessary -> Is there another way to get the accelaration?
-typedef struct
+// -- Structs --
+
+typedef struct // TODO: verify is the function is really necessary -> See raylib 6
 {
     long x, y;
 } WPOINT;
 __declspec(dllimport) int __stdcall GetCursorPos(WPOINT *lpPoint);
 
-typedef struct // State of the mouse
+typedef struct
 {
-    Vector2 screenMouse;
-    bool mouseOver;
+    Vector2 screenMouse; // Position of the mouse in the full screen
+    bool mouseOver;      // True if the mouse is over the puppet
 } MouseState;
 
-// Functions
-void DragPet(Pet *pet);                       // Drag the pet with left click
-void ToggleMenu(Pet *pet, Menu *menu);        // Right-click pet to open/close
-int GetClickedMenuItem(Menu *menu, Pet *pet); // Returns clicked item id, or -1
+// -- Functions --
+void DragPuppet(Puppet *pup);                    // Drag the puppet with left click
+void ToggleMenu(Puppet *pup, Menu *menu);        // Right-click puppet to open/close the menu
+int GetClickedMenuItem(Menu *menu, Puppet *pup); // Returns clicked item id, or -1
 
 #endif

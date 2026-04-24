@@ -1,8 +1,9 @@
 #ifndef PHYSICS_H
 #define PHYSICS_H
 
-#include "pet.h"
+#include "puppet.h"
 
-void ApplyPhysics(Pet* pet, int screenWidth, int screenHeight);
+// -- Functions --
+void ApplyPhysics(Puppet *pup, int screenWidth, int screenHeight); // Apply physics to the puppet if not dragged
 
 #endif

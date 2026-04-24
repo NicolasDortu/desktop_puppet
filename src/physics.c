@@ -1,41 +1,44 @@
 #include "physics.h"
-#include "pet.h"
+#include "puppet.h"
 
 #include "raylib.h"
 
-void ApplyPhysics(Pet *pet, int screenWidth, int screenHeight)
+void ApplyPhysics(Puppet *pup, int screenWidth, int screenHeight)
 {
-    pet->velocity.y += pet->physics.gravity; // apply gravity
-    pet->position.x += pet->velocity.x;      // apply velocity
-    pet->position.y += pet->velocity.y;
-    pet->velocity.x *= pet->physics.friction; // apply friction
+    if (pup->isDragging)
+        return;
+
+    pup->velocity.y += pup->physics.gravity; // apply gravity
+    pup->position.x += pup->velocity.x;      // apply velocity
+    pup->position.y += pup->velocity.y;
+    pup->velocity.x *= pup->physics.friction; // apply friction
 
     // Bounce on screen edges
-    if (pet->position.y + pet->radius > screenHeight)
+    if (pup->position.y + pup->radius > screenHeight)
     {
-        pet->position.y = screenHeight - pet->radius;
-        pet->velocity.y *= pet->physics.bounce;
+        pup->position.y = screenHeight - pup->radius;
+        pup->velocity.y *= pup->physics.bounce;
     }
-    if (pet->position.y - pet->radius < 0)
+    if (pup->position.y - pup->radius < 0)
     {
-        pet->position.y = pet->radius;
-        pet->velocity.y *= pet->physics.bounce;
+        pup->position.y = pup->radius;
+        pup->velocity.y *= pup->physics.bounce;
     }
-    if (pet->position.x + pet->radius > screenWidth)
+    if (pup->position.x + pup->radius > screenWidth)
     {
-        pet->position.x = screenWidth - pet->radius;
-        pet->velocity.x *= pet->physics.bounce;
+        pup->position.x = screenWidth - pup->radius;
+        pup->velocity.x *= pup->physics.bounce;
     }
-    if (pet->position.x - pet->radius < 0)
+    if (pup->position.x - pup->radius < 0)
     {
-        pet->position.x = pet->radius;
-        pet->velocity.x *= pet->physics.bounce;
+        pup->position.x = pup->radius;
+        pup->velocity.x *= pup->physics.bounce;
     }
 
     // Stop tiny bounces
-    if (pet->position.y + pet->radius >= screenHeight - 1 &&
-        pet->velocity.y > 0 && pet->velocity.y < pet->physics.minBounceVel)
+    if (pup->position.y + pup->radius >= screenHeight - 1 &&
+        pup->velocity.y > 0 && pup->velocity.y < pup->physics.minBounceVel)
     {
-        pet->velocity.y = 0;
+        pup->velocity.y = 0;
     }
 }

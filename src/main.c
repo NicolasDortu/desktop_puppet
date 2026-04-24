@@ -1,5 +1,5 @@
 #include "config.h"
-#include "pet.h"
+#include "puppet.h"
 #include "physics.h"
 #include "input.h"
 #include "renderer.h"
@@ -10,10 +10,11 @@
 int main(void)
 {
     Vector2 startPos = {0.0f, 0.0f};
-    Pet ball = CreatePet("Bally", PET_CAT, RED, 40.0f, startPos);
+    Puppet ball = CreatePuppet("Bally", PUPPET_STANDARD, RED, 40.0f, startPos);
     Menu menu = CreateMenu();
 
-    ScreenWidthHeight win = SetWindow(&ball);
+    InitPuppetWindow(&ball);
+    ScreenWidthHeight win = GetScreenSize();
 
     ball.position = (Vector2){win.screenWidth / 2.0f, win.screenHeight / 2.0f};
 
@@ -21,18 +22,16 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        // TODO: mettre les args dans le bon ordre
-        DragPet(&ball);
+        DragPuppet(&ball);
         ToggleMenu(&ball, &menu);
-        MenuActions(&menu, &ball);
+        MenuActions(&ball, &menu);
         UpdateWindow(&ball, &menu);
-        if (!ball.isDragging)
-            ApplyPhysics(&ball, win.screenWidth, win.screenHeight);
-
+        ApplyPhysics(&ball, win.screenWidth, win.screenHeight);
+        MenuLayout layout = ComputeMenuLayout(&ball, &menu);
         BeginDrawing();
         ClearBackground(BLANK);
-        RenderWindow(&ball, &menu);
-        RenderMenu(&menu, &ball);
+        DrawPuppet(&ball, layout);
+        DrawMenu(&menu, layout);
         EndDrawing();
     }
 
