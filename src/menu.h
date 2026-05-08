@@ -45,7 +45,7 @@ typedef struct
 // --- Functions ---
 Menu CreateMenu();                                               // Build the menu with its items
 void MenuActions(Puppet *pup, Menu *menu);                       // Set actions in the menu
-MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu);           // Compute the layout of the menu once
+MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu);           // Compute the layout of the menu
 Rectangle GetMenuItemRect(Menu *menu, MenuLayout layout, int i); // Get the rectangle with the pos of the menu items
 
 #endif

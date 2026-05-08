@@ -5,12 +5,11 @@
 
 #include "raylib.h"
 
-Puppet CreatePuppet(const char *name, enum PuppetType type, Color color, float radius, Vector2 startPos)
+Puppet CreatePuppet(const char *name, Color color, float radius, Vector2 startPos)
 {
     Puppet pup;
     strncpy(pup.name, name, sizeof(pup.name) - 1);
     pup.name[sizeof(pup.name) - 1] = '\0';
-    pup.puppetType = type;
     pup.color = color;
     pup.radius = radius;
     pup.position = startPos;
@@ -21,5 +20,6 @@ Puppet CreatePuppet(const char *name, enum PuppetType type, Color color, float r
         .friction = DEFAULT_FRICTION,
         .bounce = DEFAULT_BOUNCE,
         .minBounceVel = DEFAULT_MIN_BOUNCE_VEL};
+    PuppetLimb limbs[LIMB_COUNT];
     return pup;
 }

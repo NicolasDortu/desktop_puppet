@@ -6,7 +6,7 @@
 
 // -- Structs --
 
-typedef struct // TODO: verify is the function is really necessary -> See raylib 6
+typedef struct // Help to get the mouse position when out of the game window and avoid conflict windows.h/raylib. TODO: update for others OS
 {
     long x, y;
 } WPOINT;
