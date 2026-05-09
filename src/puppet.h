@@ -30,6 +30,7 @@ typedef struct Puppet
     float radius;
     Vector2 position;
     Vector2 velocity;
+    float rotation;
     bool isDragging;
     PhysicsConfig physics;
     PuppetLimb limbs[LIMB_COUNT];
@@ -37,5 +38,6 @@ typedef struct Puppet
 
 // -- Functions --
 Puppet CreatePuppet(const char *name, Color color, float radius, Vector2 startPos);
+Vector2 GetLimbsPosition(Puppet *pup, Vector2 limbPos);
 
 #endif

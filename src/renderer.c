@@ -47,8 +47,8 @@ void DrawPuppet(Puppet *pup, MenuLayout layout)
     for (int i = 0; i < LIMB_COUNT; i++)
     {
         PuppetLimb limb = pup->limbs[i];
-        DrawCircleV((Vector2){cx + limb.position.x, cy + limb.position.y},
-                    limb.radius, limb.color);
+        Vector2 rotated = GetLimbsPosition(pup, limb.position);
+        DrawCircleV((Vector2){cx + rotated.x, cy + rotated.y}, limb.radius, limb.color);
     }
 }
 

@@ -8,10 +8,11 @@ void ApplyPhysics(Puppet *pup, int screenWidth, int screenHeight)
     if (pup->isDragging)
         return;
 
-    pup->velocity.y += pup->physics.gravity; // apply gravity
-    pup->position.x += pup->velocity.x;      // apply velocity
-    pup->position.y += pup->velocity.y;
-    pup->velocity.x *= pup->physics.friction; // apply friction
+    pup->velocity.y += pup->physics.gravity;  // apply gravity
+    pup->position.x += pup->velocity.x;       // apply velocity to x
+    pup->position.y += pup->velocity.y;       // apply velocity to y
+    pup->velocity.x *= pup->physics.friction; // apply friction to x velocity
+    pup->rotation *= pup->physics.friction;   // apply friction to the rotation
 
     // Bounce on screen edges
     if (pup->position.y + pup->radius > screenHeight)

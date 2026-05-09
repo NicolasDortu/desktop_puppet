@@ -2,6 +2,8 @@
 #include "puppet.h"
 #include "menu.h"
 
+#include <math.h>
+
 #include "raylib.h"
 
 static Vector2 dragOffset = {0, 0}; // Offset between mouse and puppet center when dragging
@@ -23,8 +25,9 @@ MouseState GetMouseState(Puppet *pup)
     for (int i = LIMB_COUNT - 1; i >= 0; i--)
     {
         PuppetLimb limb = pup->limbs[i];
-        float limbDx = dx - limb.position.x;
-        float limbDy = dy - limb.position.y;
+        Vector2 rotated = GetLimbsPosition(pup, limb.position);
+        float limbDx = dx - rotated.x;
+        float limbDy = dy - rotated.y;
         if ((limbDx * limbDx + limbDy * limbDy) <= limb.radius * limb.radius)
         {
             return (MouseState){
@@ -39,6 +42,7 @@ MouseState GetMouseState(Puppet *pup)
 }
 
 // -- Puppet --
+static int draggedLimb = -1;
 
 void DragPuppet(Puppet *pup)
 {
@@ -47,22 +51,36 @@ void DragPuppet(Puppet *pup)
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && ms.hoveredLimb != -1)
     {
         pup->isDragging = true;
+        draggedLimb = ms.hoveredLimb;
         dragOffset.x = pup->position.x - ms.screenMouse.x;
         dragOffset.y = pup->position.y - ms.screenMouse.y;
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
+    {
         pup->isDragging = false;
+        draggedLimb = -1;
+    }
 
     if (pup->isDragging)
     {
-        pup->position.x = ms.screenMouse.x + dragOffset.x;
-        pup->position.y = ms.screenMouse.y + dragOffset.y;
+        if (draggedLimb == LIMB_BODY)
+        {
+            // Body drag: move the center, no rotation
+            pup->position.x = ms.screenMouse.x + dragOffset.x;
+            pup->position.y = ms.screenMouse.y + dragOffset.y;
+        }
+        else
+        {
+            pup->position.x = ms.screenMouse.x + dragOffset.x;
+            pup->position.y = ms.screenMouse.y + dragOffset.y;
+            pup->rotation = atan2f(pup->velocity.y, pup->velocity.x);
+        }
         pup->velocity.x = ms.screenMouse.x - prevMouse.x;
         pup->velocity.y = ms.screenMouse.y - prevMouse.y;
-    }
 
-    prevMouse = ms.screenMouse;
+        prevMouse = ms.screenMouse;
+    }
 }
 
 // -- Menu --

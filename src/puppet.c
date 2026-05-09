@@ -6,7 +6,7 @@
 
 #include "raylib.h"
 
-// All the limbs' positions are relative to the puppet's center
+// Initialize the limbs and their relative positions based on the puppet's radius
 static void InitPuppetLimbs(Puppet *pup)
 {
     float R = pup->radius;
@@ -33,6 +33,17 @@ static void InitPuppetLimbs(Puppet *pup)
     pup->limbs[LIMB_FOOT_R] = (PuppetLimb){.position = (Vector2){bodyR * feetOffset, bodyR + feetGround}, .radius = limbR, .color = c};
 }
 
+// Calculate the limb's position based on the puppet's rotation
+// When the rotation is 0, cos = 1 and sin = 0, so the limb's position remains unchanged
+Vector2 GetLimbsPosition(Puppet *pup, Vector2 limbPos)
+{
+    float cosAngle = cosf(pup->rotation);
+    float sinAngle = sinf(pup->rotation);
+    return (Vector2){
+        .x = limbPos.x * cosAngle - limbPos.y * sinAngle,
+        .y = limbPos.x * sinAngle + limbPos.y * cosAngle};
+}
+
 Puppet CreatePuppet(const char *name, Color color, float radius, Vector2 startPos)
 {
     Puppet pup;
@@ -41,6 +52,7 @@ Puppet CreatePuppet(const char *name, Color color, float radius, Vector2 startPo
     pup.color = color;
     pup.radius = radius;
     pup.position = startPos;
+    pup.rotation = 0.0f;
     pup.velocity = (Vector2){0.0f, 0.0f};
     pup.isDragging = false;
     pup.physics = (PhysicsConfig){
