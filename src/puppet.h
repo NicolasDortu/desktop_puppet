@@ -7,11 +7,12 @@
 // -- Declarations --
 typedef struct
 {
-    Vector2 position;
+    Vector2 position; // relative position to the puppet's center
     float radius;
+    Color color;
 } PuppetLimb;
 
-typedef enum
+typedef enum LimbId
 {
     LIMB_BODY,
     LIMB_HEAD,

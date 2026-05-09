@@ -39,19 +39,17 @@ void UpdateWindow(Puppet *pup, Menu *menu)
 // -- Entities --
 void DrawPuppet(Puppet *pup, MenuLayout layout)
 {
-    float R = pup->radius;
-    float bodyR = R * 0.60f;
-    float headR = R / 3.0f;
-    float limbR = R / 4.0f;
-    float cx = R;
-    float cy = R + (float)layout.overflow;
 
-    DrawCircleV((Vector2){cx, cy + R * 0.08f}, bodyR, YELLOW);             // body
-    DrawCircleV((Vector2){cx, cy - bodyR}, headR, pup->color);             // head
-    DrawCircleV((Vector2){cx - R / 1.5f, cy}, limbR, pup->color);          // left arm
-    DrawCircleV((Vector2){cx + R / 1.5f, cy}, limbR, pup->color);          // right arm
-    DrawCircleV((Vector2){cx - headR, cy + R / 1.33f}, limbR, pup->color); // left foot
-    DrawCircleV((Vector2){cx + headR, cy + R / 1.33f}, limbR, pup->color); // right foot
+    // Window-space center of the puppet's bounding circle.
+    float cx = pup->radius;
+    float cy = pup->radius + (float)layout.overflow;
+
+    for (int i = 0; i < LIMB_COUNT; i++)
+    {
+        PuppetLimb limb = pup->limbs[i];
+        DrawCircleV((Vector2){cx + limb.position.x, cy + limb.position.y},
+                    limb.radius, limb.color);
+    }
 }
 
 void DrawMenu(Menu *menu, MenuLayout layout)

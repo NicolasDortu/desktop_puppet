@@ -10,7 +10,7 @@
 int main(void)
 {
     Vector2 startPos = {0.0f, 0.0f};
-    Puppet ball = CreatePuppet("Bally", RED, 80.0f, startPos);
+    Puppet ball = CreatePuppet("Bally", RED, 100.0f, startPos);
     Menu menu = CreateMenu();
 
     InitPuppetWindow(&ball);

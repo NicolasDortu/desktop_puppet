@@ -6,7 +6,7 @@
 
 // -- Structs --
 
-typedef struct // Help to get the mouse position when out of the game window and avoid conflict windows.h/raylib. TODO: update for others OS
+typedef struct // Help to get the mouse position when out of the game window and avoid conflict windows.h/raylib. // TODO: update for others OS
 {
     long x, y;
 } WPOINT;
@@ -15,7 +15,7 @@ __declspec(dllimport) int __stdcall GetCursorPos(WPOINT *lpPoint);
 typedef struct
 {
     Vector2 screenMouse; // Position of the mouse in the full screen
-    bool mouseOver;      // True if the mouse is over the puppet
+    int hoveredLimb;     // Index of the hovered limb, or -1 if none
 } MouseState;
 
 // -- Functions --
