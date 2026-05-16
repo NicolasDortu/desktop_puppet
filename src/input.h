@@ -6,7 +6,7 @@
 
 // -- Structs --
 
-typedef struct // Help to get the mouse position when out of the game window and avoid conflict windows.h/raylib. // TODO: update for others OS
+typedef struct // Help to get the mouse pos when out of the game window and avoid conflict windows.h/raylib. // TODO: update for others OS
 {
     long x, y;
 } WPOINT;
@@ -19,6 +19,7 @@ typedef struct
 } MouseState;
 
 // -- Functions --
+
 void DragPuppet(Puppet *pup);                    // Drag the puppet with left click
 void ToggleMenu(Puppet *pup, Menu *menu);        // Right-click puppet to open/close the menu
 int GetClickedMenuItem(Menu *menu, Puppet *pup); // Returns clicked item id, or -1

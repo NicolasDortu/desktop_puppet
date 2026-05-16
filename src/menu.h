@@ -5,6 +5,7 @@
 #include "puppet.h"
 
 // --- Menu Definition ---
+
 enum MenuItemId
 {
     MENU_ITEM_RED,
@@ -34,15 +35,15 @@ typedef struct Menu
 // Cached layout values shared by renderer/input
 typedef struct
 {
-    int pupBox;   // 2 * pup->radius
-    int menuH;    // total menu height (0 if closed)
-    int menuW;    // menu width (0 if closed)
-    int overflow; // extra vertical space when menu is taller than puppet
-    int x;        // menu top-left x within window
-    int y;        // menu top-left y within window
+    int pupBox; // 2 * pup->radius
+    int menuH;  // total menu height (0 if closed)
+    int menuW;  // menu width (0 if closed)
+    int x;      // menu top-left x within window
+    int y;      // menu top-left y within window
 } MenuLayout;
 
 // --- Functions ---
+
 Menu CreateMenu();                                               // Build the menu with its items
 void MenuActions(Puppet *pup, Menu *menu);                       // Set actions in the menu
 MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu);           // Compute the layout of the menu

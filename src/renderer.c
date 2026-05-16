@@ -6,19 +6,18 @@
 
 // -- Theme --
 static const Color MENU_BG_COLOR = {40, 40, 40, 230};
-#define MENU_BORDER_COLOR LIGHTGRAY
-#define MENU_TEXT_COLOR RAYWHITE
 
 // -- Window --
-void InitPuppetWindow(Puppet *pup)
-{
-    int winSize = (int)(2 * pup->radius);
 
+// Initialize the game window with the appropriate flags for a transparent, borderless, always-on-top window.
+void InitGameWindow(int size)
+{
     // Transparent, borderless, always-on-top window sized to the puppet
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
-    InitWindow(winSize, winSize, "Desktop Puppet");
+    InitWindow(size, size, "Desktop Puppet");
 }
 
+// Get the current screen size to position the puppet window and menu correctly.
 ScreenWidthHeight GetScreenSize(void)
 {
     return (ScreenWidthHeight){
@@ -26,32 +25,34 @@ ScreenWidthHeight GetScreenSize(void)
         .screenHeight = GetMonitorHeight(GetCurrentMonitor())};
 }
 
-void UpdateWindow(Puppet *pup, Menu *menu)
+// Update the window size and position to fit the puppet's bounds, keeping it anchored to the desktop.
+void UpdateWindow(Puppet *pup)
 {
-    MenuLayout layout = ComputeMenuLayout(pup, menu);
+    PuppetBounds b = pup->bounds;
 
-    SetWindowSize(layout.pupBox + layout.menuW, layout.pupBox + layout.overflow);
-    SetWindowPosition(
-        (int)(pup->position.x - pup->radius),
-        (int)(pup->position.y - pup->radius) - layout.overflow);
+    SetWindowSize((int)b.w, (int)b.h);
+    SetWindowPosition((int)b.x, (int)b.y);
 }
 
 // -- Entities --
-void DrawPuppet(Puppet *pup, MenuLayout layout)
-{
 
-    // Window-space center of the puppet's bounding circle.
-    float cx = pup->radius;
-    float cy = pup->radius + (float)layout.overflow;
+// Draw the puppet limbs as circles, using the puppet's bounds to position them correctly within the window.
+void DrawPuppet(Puppet *pup)
+{
+    PuppetBounds b = pup->bounds;
+    // Window top-left in screen space (matches UpdateWindow positioning).
+    float winOriginX = b.x;
+    float winOriginY = b.y;
 
     for (int i = 0; i < LIMB_COUNT; i++)
     {
         PuppetLimb limb = pup->limbs[i];
-        Vector2 rotated = GetLimbsPosition(pup, limb.position);
-        DrawCircleV((Vector2){cx + rotated.x, cy + rotated.y}, limb.radius, limb.color);
+        Vector2 local = {limb.pos.x - winOriginX, limb.pos.y - winOriginY};
+        DrawCircleV(local, limb.radius, limb.color);
     }
 }
 
+// Draw the menu as a rectangle with text, positioned relative to the puppet's bounds.
 void DrawMenu(Menu *menu, MenuLayout layout)
 {
     if (!menu->isOpen)
@@ -69,6 +70,6 @@ void DrawMenu(Menu *menu, MenuLayout layout)
                  iconX + menu->iconSize + menu->padding,
                  iconY,
                  menu->iconSize,
-                 MENU_TEXT_COLOR);
+                 RAYWHITE);
     }
 }

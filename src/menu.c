@@ -4,7 +4,10 @@
 
 #include "raylib.h"
 
-Menu CreateMenu()
+// -- Menu Implementation --
+
+// Initializes the menu with default items and settings.
+Menu CreateMenu(void)
 {
     Menu menu = {
         .isOpen = false,
@@ -21,6 +24,7 @@ Menu CreateMenu()
     return menu;
 }
 
+// Executes the action associated with the clicked menu item.
 void MenuActions(Puppet *pup, Menu *menu)
 {
     switch (GetClickedMenuItem(menu, pup))
@@ -40,25 +44,25 @@ void MenuActions(Puppet *pup, Menu *menu)
     }
 }
 
+// Computes the layout of the menu based on the puppet's position and menu settings. // TODO: The menu should get it's own window
 MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu)
 {
     int pupBox = (int)(2 * pup->radius);
     int menuH = menu->isOpen ? (menu->itemCount * menu->itemHeight) : 0;
     int menuW = menu->isOpen ? menu->width : 0;
-    int overflow = (pupBox - menuH < 0) ? menuH - pupBox : 0;
     int x = pupBox + menu->padding;
-    int y = pupBox - menuH + overflow;
+    int y = pupBox - menuH;
 
     return (MenuLayout){
         .pupBox = pupBox,
         .menuH = menuH,
         .menuW = menuW,
-        .overflow = overflow,
         .x = x,
         .y = y,
     };
 }
 
+// Returns the rectangle area of the i-th menu item, used for click detection and rendering.
 Rectangle GetMenuItemRect(Menu *menu, MenuLayout layout, int i)
 {
     return (Rectangle){

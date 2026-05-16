@@ -6,8 +6,7 @@
 
 #include "raylib.h"
 
-static Vector2 dragOffset = {0, 0}; // Offset between mouse and puppet center when dragging
-static Vector2 prevMouse = {0, 0};
+static Vector2 dragOffset = {0, 0}; // Offset between mouse and the dragged limb's center
 
 // -- Mouse --
 
@@ -18,17 +17,16 @@ MouseState GetMouseState(Puppet *pup)
     GetCursorPos(&cursorPos);
     Vector2 screenMouse = {(float)cursorPos.x, (float)cursorPos.y};
 
-    float dx = screenMouse.x - pup->position.x;
-    float dy = screenMouse.y - pup->position.y;
-
-    // Get the hovered limb by checking if the mouse is within any limb's circle, starting from the topmost limb for proper z-ordering.
+    // Topmost limb wins (iterate in reverse for proper z-ordering).
     for (int i = LIMB_COUNT - 1; i >= 0; i--)
     {
         PuppetLimb limb = pup->limbs[i];
-        Vector2 rotated = GetLimbsPosition(pup, limb.position);
-        float limbDx = dx - rotated.x;
-        float limbDy = dy - rotated.y;
-        if ((limbDx * limbDx + limbDy * limbDy) <= limb.radius * limb.radius)
+        if (limb.radius <= 0.0f)
+            continue;
+
+        float dx = screenMouse.x - limb.pos.x;
+        float dy = screenMouse.y - limb.pos.y;
+        if ((dx * dx + dy * dy) <= limb.radius * limb.radius)
         {
             return (MouseState){
                 .screenMouse = screenMouse,
@@ -42,44 +40,32 @@ MouseState GetMouseState(Puppet *pup)
 }
 
 // -- Puppet --
-static int draggedLimb = -1;
 
+// Drag the puppet limbs with the mouse, applying an offset to avoid snapping the limb center to the cursor.
 void DragPuppet(Puppet *pup)
 {
     MouseState ms = GetMouseState(pup);
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && ms.hoveredLimb != -1)
     {
-        pup->isDragging = true;
-        draggedLimb = ms.hoveredLimb;
-        dragOffset.x = pup->position.x - ms.screenMouse.x;
-        dragOffset.y = pup->position.y - ms.screenMouse.y;
+        pup->draggedLimb = ms.hoveredLimb;
+        PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
+        dragOffset.x = limb->pos.x - ms.screenMouse.x;
+        dragOffset.y = limb->pos.y - ms.screenMouse.y;
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
     {
-        pup->isDragging = false;
-        draggedLimb = -1;
+        pup->draggedLimb = -1;
     }
 
-    if (pup->isDragging)
+    if (pup->draggedLimb != -1)
     {
-        if (draggedLimb == LIMB_BODY)
-        {
-            // Body drag: move the center, no rotation
-            pup->position.x = ms.screenMouse.x + dragOffset.x;
-            pup->position.y = ms.screenMouse.y + dragOffset.y;
-        }
-        else
-        {
-            pup->position.x = ms.screenMouse.x + dragOffset.x;
-            pup->position.y = ms.screenMouse.y + dragOffset.y;
-            pup->rotation = atan2f(pup->velocity.y, pup->velocity.x);
-        }
-        pup->velocity.x = ms.screenMouse.x - prevMouse.x;
-        pup->velocity.y = ms.screenMouse.y - prevMouse.y;
-
-        prevMouse = ms.screenMouse;
+        PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
+        // Store the previous position so verlet preserves the throw velocity on release.
+        limb->oldPos = limb->pos;
+        limb->pos.x = ms.screenMouse.x + dragOffset.x;
+        limb->pos.y = ms.screenMouse.y + dragOffset.y;
     }
 }
 
@@ -91,6 +77,7 @@ void ToggleMenu(Puppet *pup, Menu *menu)
         menu->isOpen = !menu->isOpen;
 }
 
+// Get the clicked menu item id, or -1 if none. Closes the menu if an item was clicked.
 int GetClickedMenuItem(Menu *menu, Puppet *pup)
 {
     if (!menu->isOpen)

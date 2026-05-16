@@ -5,6 +5,8 @@
 #include "menu.h"
 
 // -- Declarations --
+
+// Struct to hold screen dimensions.
 typedef struct
 {
     int screenWidth;
@@ -12,9 +14,10 @@ typedef struct
 } ScreenWidthHeight;
 
 // -- Functions --
-void InitPuppetWindow(Puppet *pup);              // Create transparent borderless window
-ScreenWidthHeight GetScreenSize(void);           // Query monitor dimensions
-void UpdateWindow(Puppet *pup, Menu *menu);      // Update the window in case dimensions are modified
-void DrawPuppet(Puppet *pup, MenuLayout layout); // Draw the puppet
-void DrawMenu(Menu *menu, MenuLayout layout);    // Draw the menu
+
+void InitGameWindow(int size);
+ScreenWidthHeight GetScreenSize(void);
+void UpdateWindow(Puppet *pup);
+void DrawPuppet(Puppet *pup);
+void DrawMenu(Menu *menu, MenuLayout layout);
 #endif

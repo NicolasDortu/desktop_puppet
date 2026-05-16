@@ -9,14 +9,13 @@
 
 int main(void)
 {
-    Vector2 startPos = {0.0f, 0.0f};
-    Puppet ball = CreatePuppet("Bally", RED, 100.0f, startPos);
-    Menu menu = CreateMenu();
-
-    InitPuppetWindow(&ball);
+    float radius = 100.0f;
+    InitGameWindow((int)(2 * radius));
     ScreenWidthHeight win = GetScreenSize();
 
-    ball.position = (Vector2){win.screenWidth / 2.0f, win.screenHeight / 2.0f};
+    Vector2 startPos = {win.screenWidth / 2.0f, win.screenHeight / 2.0f};
+    Puppet ball = CreatePuppet("Bally", RED, radius, startPos);
+    Menu menu = CreateMenu();
 
     SetTargetFPS(TARGET_FPS);
 
@@ -25,12 +24,12 @@ int main(void)
         DragPuppet(&ball);
         ToggleMenu(&ball, &menu);
         MenuActions(&ball, &menu);
-        UpdateWindow(&ball, &menu);
         ApplyPhysics(&ball, win.screenWidth, win.screenHeight);
+        UpdateWindow(&ball);
         MenuLayout layout = ComputeMenuLayout(&ball, &menu);
         BeginDrawing();
         ClearBackground(BLANK);
-        DrawPuppet(&ball, layout);
+        DrawPuppet(&ball);
         DrawMenu(&menu, layout);
         EndDrawing();
     }
