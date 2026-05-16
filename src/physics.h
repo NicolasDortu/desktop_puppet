@@ -3,8 +3,10 @@
 
 #include "puppet.h"
 
-// -- Functions --
+// =============================================================================
+//  FUNCTIONS
+// =============================================================================
 
-void ApplyPhysics(Puppet *pup, int screenWidth, int screenHeight); // Apply physics to the puppet if not dragged
+void ApplyPhysics(Puppet *pup, int screenWidth, int screenHeight);
 
 #endif

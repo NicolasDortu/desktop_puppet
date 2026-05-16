@@ -4,10 +4,15 @@
 
 #include "raylib.h"
 
-// -- Theme --
+// =============================================================================
+//  THEME
+// =============================================================================
+
 static const Color MENU_BG_COLOR = {40, 40, 40, 230};
 
-// -- Window --
+// =============================================================================
+//  WINDOW
+// =============================================================================
 
 // Initialize the game window with the appropriate flags for a transparent, borderless, always-on-top window.
 void InitGameWindow(int size)
@@ -34,7 +39,9 @@ void UpdateWindow(Puppet *pup)
     SetWindowPosition((int)b.x, (int)b.y);
 }
 
-// -- Entities --
+// =============================================================================
+//  ENTITIES
+// =============================================================================
 
 // Draw the puppet limbs as circles, using the puppet's bounds to position them correctly within the window.
 void DrawPuppet(Puppet *pup)

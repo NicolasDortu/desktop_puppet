@@ -4,22 +4,24 @@
 
 #include "raylib.h"
 
-// -- Menu Implementation --
+// =============================================================================
+//  MENU IMPLEMENTATION
+// =============================================================================
 
 // Initializes the menu with default items and settings.
 Menu CreateMenu(void)
 {
     Menu menu = {
-        .isOpen = false,
-        .width = 120,
+        .isOpen     = false,
+        .width      = 120,
         .itemHeight = 30,
-        .iconSize = 16,
-        .padding = 8,
-        .itemCount = MENU_ITEM_COUNT,
+        .iconSize   = 16,
+        .padding    = 8,
+        .itemCount  = MENU_ITEM_COUNT,
         .items = {
-            {.id = MENU_ITEM_RED, .action = "RED", .color = RED},
+            {.id = MENU_ITEM_RED,   .action = "RED",   .color = RED},
             {.id = MENU_ITEM_GREEN, .action = "GREEN", .color = GREEN},
-            {.id = MENU_ITEM_BLUE, .action = "BLUE", .color = BLUE},
+            {.id = MENU_ITEM_BLUE,  .action = "BLUE",  .color = BLUE},
         }};
     return menu;
 }
@@ -48,17 +50,17 @@ void MenuActions(Puppet *pup, Menu *menu)
 MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu)
 {
     int pupBox = (int)(2 * pup->radius);
-    int menuH = menu->isOpen ? (menu->itemCount * menu->itemHeight) : 0;
-    int menuW = menu->isOpen ? menu->width : 0;
-    int x = pupBox + menu->padding;
-    int y = pupBox - menuH;
+    int menuH  = menu->isOpen ? (menu->itemCount * menu->itemHeight) : 0;
+    int menuW  = menu->isOpen ? menu->width : 0;
+    int x      = pupBox + menu->padding;
+    int y      = pupBox - menuH;
 
     return (MenuLayout){
         .pupBox = pupBox,
-        .menuH = menuH,
-        .menuW = menuW,
-        .x = x,
-        .y = y,
+        .menuH  = menuH,
+        .menuW  = menuW,
+        .x      = x,
+        .y      = y,
     };
 }
 

@@ -1,24 +1,29 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// --- Physics ---
+// =============================================================================
+//  PHYSICS
+// =============================================================================
 
-// Default physics value
-
-#define DEFAULT_GRAVITY 0.5f
-#define DEFAULT_FRICTION 0.99f
-#define DEFAULT_BOUNCE -0.7f
-#define DEFAULT_MIN_BOUNCE 0.03f
+// Default tuning values for the puppet's physics simulation.
+#define DEFAULT_GRAVITY     0.50f  // px/frame² downward acceleration
+#define DEFAULT_FRICTION    0.99f  // velocity retained per frame (1.0 = none)
+#define DEFAULT_BOUNCE     -0.70f  // velocity multiplier on wall/floor impact
+#define DEFAULT_MIN_BOUNCE  0.03f  // speed below which residual motion is killed
+#define DEFAULT_STIFFNESS   0.05f  // fraction of correction applied by soft bones
 
 typedef struct
 {
-    float gravity;   // pixels per frame² downward acceleration
-    float friction;  // horizontal velocity multiplier per frame
+    float gravity;   // px/frame² downward acceleration
+    float friction;  // velocity multiplier applied each frame
     float bounce;    // velocity multiplier on wall/floor collision
-    float minBounce; // velocity below which vertical bounce stops
+    float minBounce; // speed threshold below which motion is zeroed (anti-jitter)
+    float stiffness; // softness of soft bones (0 = floppy, 1 = rigid)
 } PhysicsConfig;
 
-// --- Engine ---
+// =============================================================================
+//  ENGINE
+// =============================================================================
 
 #define TARGET_FPS 60
 

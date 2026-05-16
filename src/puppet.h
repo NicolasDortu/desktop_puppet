@@ -4,18 +4,20 @@
 
 #include "raylib.h"
 
-// -- Declarations --
+// =============================================================================
+//  LIMBS
+// =============================================================================
 
-// Limb for verlet integration. Require a radius for rendering and collision, and a color for rendering.
+// A single point-mass driven by Verlet integration.
 typedef struct
 {
-    Vector2 pos;    // world-space position of the limb's center
-    Vector2 oldPos; // previous world-space position for Verlet integration
-    float radius;
-    Color color;
+    Vector2 pos;    // current world-space position of the limb's center
+    Vector2 oldPos; // previous world-space position (defines velocity)
+    float   radius; // used for rendering AND limb-limb collision
+    Color   color;
 } PuppetLimb;
 
-// Unique IDs for each limb
+// Index of each limb within Puppet.limbs[].
 typedef enum LimbId
 {
     LIMB_BODY,
@@ -27,47 +29,69 @@ typedef enum LimbId
     LIMB_COUNT
 } LimbId;
 
-// Boundaries of the puppet, used for sizing windows and menus.
-typedef struct
-{
-    float x, y, w, h;
-} PuppetBounds;
+// =============================================================================
+//  BONES
+// =============================================================================
 
-// Bone connecting two limbs, with a rest length to maintain.
+// Distance constraint between two limbs.
+// Hard bones snap exactly to `length`; soft bones approach it gradually.
 typedef struct
 {
     LimbId limb1;
     LimbId limb2;
-    float length;
+    float  length; // rest length, captured at puppet creation
 } PuppetBone;
 
-// Unique IDs for each bone
+// Index of each bone within Puppet.bones[].
 typedef enum BoneId
 {
+    // -- Hard bones: rigid skeleton --
     BODY_HEAD,
     BODY_ARM_L,
     BODY_ARM_R,
     BODY_FOOT_L,
     BODY_FOOT_R,
+    HEAD_FOOT_L,   // diagonals prevent the puppet from folding in on itself
+    HEAD_FOOT_R,
+
+    // -- Soft bones: pull arms back to rest pose without locking them --
+    HEAD_ARM_L,
+    HEAD_ARM_R,
+
     BONE_COUNT
 } BoneId;
 
-// Puppet structure containing all limbs, bones, and physics configuration.
+// Bones with index >= SOFT_BONE_START use the soft `stiffness` factor.
+#define SOFT_BONE_START HEAD_ARM_L
+
+// =============================================================================
+//  PUPPET
+// =============================================================================
+
+// Axis-aligned bounding box around all limbs; drives window sizing/positioning.
+typedef struct
+{
+    float x, y, w, h;
+} PuppetBounds;
+
 typedef struct Puppet
 {
-    char name[32];
-    Color color;
-    float radius;
-    PuppetBounds bounds;
-    int draggedLimb; // Index of the limb being dragged, or -1
+    char          name[32];
+    Color         color;
+    float         radius;              // overall puppet size; limb radii are fractions of this
+    PuppetBounds  bounds;              // recomputed every physics step
+    int           draggedLimb;         // index of the limb being dragged, or -1
     PhysicsConfig physics;
-    PuppetLimb limbs[LIMB_COUNT];
-    PuppetBone bones[BONE_COUNT];
+    PuppetLimb    limbs[LIMB_COUNT];
+    PuppetBone    bones[BONE_COUNT];
 } Puppet;
 
-// -- Functions --
+// =============================================================================
+//  FUNCTIONS
+// =============================================================================
 
-Puppet CreatePuppet(const char *name, Color color, float radius, Vector2 startPos);
-float LimbsDistance(const Puppet *pup, LimbId limb1, LimbId limb2);
+Puppet       CreatePuppet(const char *name, Color color, float radius, Vector2 startPos);
+PuppetBounds ComputePuppetBounds(const Puppet *pup);
+float        LimbsDistance(const Puppet *pup, LimbId limb1, LimbId limb2);
 
 #endif

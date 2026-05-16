@@ -8,7 +8,9 @@
 
 static Vector2 dragOffset = {0, 0}; // Offset between mouse and the dragged limb's center
 
-// -- Mouse --
+// =============================================================================
+//  MOUSE
+// =============================================================================
 
 // Get the mouse state relative to the puppet, return the hovered limb index or -1 if none.
 MouseState GetMouseState(Puppet *pup)
@@ -39,9 +41,11 @@ MouseState GetMouseState(Puppet *pup)
         .hoveredLimb = -1};
 }
 
-// -- Puppet --
+// =============================================================================
+//  PUPPET INPUTS
+// =============================================================================
 
-// Drag the puppet limbs with the mouse, applying an offset to avoid snapping the limb center to the cursor.
+// Drag the puppet limbs with left click, applying an offset to avoid snapping the limb center to the cursor.
 void DragPuppet(Puppet *pup)
 {
     MouseState ms = GetMouseState(pup);
@@ -50,8 +54,8 @@ void DragPuppet(Puppet *pup)
     {
         pup->draggedLimb = ms.hoveredLimb;
         PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
-        dragOffset.x = limb->pos.x - ms.screenMouse.x;
-        dragOffset.y = limb->pos.y - ms.screenMouse.y;
+        dragOffset.x     = limb->pos.x - ms.screenMouse.x;
+        dragOffset.y     = limb->pos.y - ms.screenMouse.y;
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
@@ -64,13 +68,16 @@ void DragPuppet(Puppet *pup)
         PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
         // Store the previous position so verlet preserves the throw velocity on release.
         limb->oldPos = limb->pos;
-        limb->pos.x = ms.screenMouse.x + dragOffset.x;
-        limb->pos.y = ms.screenMouse.y + dragOffset.y;
+        limb->pos.x  = ms.screenMouse.x + dragOffset.x;
+        limb->pos.y  = ms.screenMouse.y + dragOffset.y;
     }
 }
 
-// -- Menu --
+// =============================================================================
+//  MENU INPUTS
+// =============================================================================
 
+// Right-click puppet to open/close the menu
 void ToggleMenu(Puppet *pup, Menu *menu)
 {
     if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
@@ -85,7 +92,7 @@ int GetClickedMenuItem(Menu *menu, Puppet *pup)
     if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         return -1;
 
-    Vector2 m = GetMousePosition();
+    Vector2    m      = GetMousePosition();
     MenuLayout layout = ComputeMenuLayout(pup, menu);
 
     for (int i = 0; i < menu->itemCount; i++)

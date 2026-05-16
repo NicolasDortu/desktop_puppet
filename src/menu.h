@@ -4,7 +4,9 @@
 #include "raylib.h"
 #include "puppet.h"
 
-// --- Menu Definition ---
+// =============================================================================
+//  DECLARATIONS
+// =============================================================================
 
 enum MenuItemId
 {
@@ -42,7 +44,9 @@ typedef struct
     int y;      // menu top-left y within window
 } MenuLayout;
 
-// --- Functions ---
+// =============================================================================
+//  FUNCTIONS
+// =============================================================================
 
 Menu CreateMenu();                                               // Build the menu with its items
 void MenuActions(Puppet *pup, Menu *menu);                       // Set actions in the menu
