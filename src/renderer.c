@@ -1,25 +1,18 @@
 #include "renderer.h"
 #include "puppet.h"
-#include "menu.h"
 
 #include "raylib.h"
-
-// =============================================================================
-//  THEME
-// =============================================================================
-
-static const Color MENU_BG_COLOR = {40, 40, 40, 230};
 
 // =============================================================================
 //  WINDOW
 // =============================================================================
 
-// Initialize the game window with the appropriate flags for a transparent, borderless, always-on-top window.
-void InitGameWindow(int size)
+// Initialize a desktop-overlay window: transparent, undecorated, always on top.
+// Used by every role so all three windows share the same look and title.
+void InitOverlayWindow(int width, int height)
 {
-    // Transparent, borderless, always-on-top window sized to the puppet
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
-    InitWindow(size, size, "Desktop Puppet");
+    InitWindow(width, height, "Desktop Puppet");
 }
 
 // Get the current screen size to position the puppet window and menu correctly.
@@ -56,27 +49,5 @@ void DrawPuppet(Puppet *pup)
         PuppetLimb limb = pup->limbs[i];
         Vector2 local = {limb.pos.x - winOriginX, limb.pos.y - winOriginY};
         DrawCircleV(local, limb.radius, limb.color);
-    }
-}
-
-// Draw the menu as a rectangle with text, positioned relative to the puppet's bounds.
-void DrawMenu(Menu *menu, MenuLayout layout)
-{
-    if (!menu->isOpen)
-        return;
-
-    DrawRectangle(layout.x, layout.y, menu->width, layout.menuH, MENU_BG_COLOR); // menu background
-
-    for (int i = 0; i < menu->itemCount; i++) // menu
-    {
-        Rectangle r = GetMenuItemRect(menu, layout, i);
-        int iconX = (int)r.x;
-        int iconY = (int)r.y + menu->padding;
-        DrawRectangle(iconX, iconY, menu->iconSize, menu->iconSize, menu->items[i].color);
-        DrawText(menu->items[i].action,
-                 iconX + menu->iconSize + menu->padding,
-                 iconY,
-                 menu->iconSize,
-                 RAYWHITE);
     }
 }

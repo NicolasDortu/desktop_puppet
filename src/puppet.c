@@ -72,7 +72,7 @@ static PuppetBounds InitPuppetLimbs(Puppet *pup, Vector2 startPos)
     Vector2 footRPos = { c.x + bodyR * feetOffset,  c.y + bodyR + feetGround    };
 
     // --- Build the limbs (oldPos = pos => zero initial velocity) ---
-    pup->limbs[LIMB_BODY]   = (PuppetLimb){ .pos = bodyPos,  .oldPos = bodyPos,  .radius = bodyR, .color = YELLOW };
+    pup->limbs[LIMB_BODY]   = (PuppetLimb){ .pos = bodyPos,  .oldPos = bodyPos,  .radius = bodyR, .color = pup->color };
     pup->limbs[LIMB_HEAD]   = (PuppetLimb){ .pos = headPos,  .oldPos = headPos,  .radius = headR, .color = BLUE   };
     pup->limbs[LIMB_ARM_L]  = (PuppetLimb){ .pos = armLPos,  .oldPos = armLPos,  .radius = limbR, .color = GREEN  };
     pup->limbs[LIMB_ARM_R]  = (PuppetLimb){ .pos = armRPos,  .oldPos = armRPos,  .radius = limbR, .color = GREEN  };

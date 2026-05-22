@@ -1,5 +1,10 @@
 SRCS = $(wildcard src/*.c)
-CFLAGS ?=
 
-default:
-	gcc $(CFLAGS) -o bin/main.exe $(SRCS) -I src -I include -L lib -lraylib -lgdi32 -lwinmm
+CFLAGS  ?=
+LDLIBS   = -lraylib -lgdi32 -lwinmm
+INCLUDES = -I src -I include -L lib
+
+default: bin/main.exe
+
+bin/main.exe: $(SRCS)
+	gcc $(CFLAGS) -o $@ $(SRCS) $(INCLUDES) $(LDLIBS)

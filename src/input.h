@@ -8,15 +8,9 @@
 //  DECLARATIONS
 // =============================================================================
 
-typedef struct // Help to get the mouse pos when out of the game window and avoid conflict windows.h/raylib. // TODO: update for others OS
-{
-    long x, y;
-} WPOINT;
-__declspec(dllimport) int __stdcall GetCursorPos(WPOINT *lpPoint);
-
 typedef struct
 {
-    Vector2 screenMouse; // Position of the mouse in the full screen
+    Vector2 mouseWinPos; // Position of the mouse in the window
     int     hoveredLimb; // Index of the hovered limb, or -1 if none
 } MouseState;
 
@@ -24,8 +18,8 @@ typedef struct
 //  FUNCTIONS
 // =============================================================================
 
-void DragPuppet(Puppet *pup);
-void ToggleMenu(Puppet *pup, Menu *menu);
-int  GetClickedMenuItem(Menu *menu, Puppet *pup);
+Vector2 GetScreenMousePos(void);             // Cursor in screen-space coords (shared by every role)
+void    DragPuppet(Puppet *pup);
+void    ToggleMenu(Puppet *pup, Menu *menu);
 
 #endif

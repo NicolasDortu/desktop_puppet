@@ -2,7 +2,6 @@
 #define RENDERER_H
 
 #include "puppet.h"
-#include "menu.h"
 
 // =============================================================================
 // DECLARATIONS
@@ -19,10 +18,9 @@ typedef struct
 //  FUNCTIONS
 // =============================================================================
 
-void InitGameWindow(int size);
+void              InitOverlayWindow(int width, int height); // Transparent, undecorated, topmost; shared by every role
 ScreenWidthHeight GetScreenSize(void);
-void UpdateWindow(Puppet *pup);
-void DrawPuppet(Puppet *pup);
-void DrawMenu(Menu *menu, MenuLayout layout);
+void              UpdateWindow(Puppet *pup);
+void              DrawPuppet(Puppet *pup);
 
 #endif

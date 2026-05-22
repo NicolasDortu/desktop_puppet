@@ -1,35 +1,72 @@
 #include "menu.h"
 #include "puppet.h"
-#include "input.h"
+#include "ipc.h"
 
 #include "raylib.h"
+
+// =============================================================================
+//  SHARED ITEM TABLE
+// =============================================================================
+
+// Single source of truth for menu items, linked into both the puppet and the
+// menu executables (menu_window.c declares it `extern`).
+const MenuItem MENU_ITEMS[MENU_ITEM_COUNT] = {
+    {.id = MENU_ITEM_RED,   .action = "RED",   .color = RED   },
+    {.id = MENU_ITEM_GREEN, .action = "GREEN", .color = GREEN },
+    {.id = MENU_ITEM_BLUE,  .action = "BLUE",  .color = BLUE  },
+    {.id = MENU_ITEM_ITEM,  .action = "ITEM",  .color = GRAY  },
+};
 
 // =============================================================================
 //  MENU IMPLEMENTATION
 // =============================================================================
 
-// Initializes the menu with default items and settings.
+// Build a fresh, closed menu with no live child process.
 Menu CreateMenu(void)
 {
-    Menu menu = {
-        .isOpen     = false,
-        .width      = 120,
-        .itemHeight = 30,
-        .iconSize   = 16,
-        .padding    = 8,
-        .itemCount  = MENU_ITEM_COUNT,
-        .items = {
-            {.id = MENU_ITEM_RED,   .action = "RED",   .color = RED},
-            {.id = MENU_ITEM_GREEN, .action = "GREEN", .color = GREEN},
-            {.id = MENU_ITEM_BLUE,  .action = "BLUE",  .color = BLUE},
-        }};
-    return menu;
+    return (Menu){
+        .isOpen = false,
+        .proc   = {0},
+    };
 }
 
-// Executes the action associated with the clicked menu item.
-void MenuActions(Puppet *pup, Menu *menu)
+// Spawn the menu child window at the given screen position.
+void OpenMenu(Menu *menu, int screenX, int screenY)
 {
-    switch (GetClickedMenuItem(menu, pup))
+    if (menu->isOpen)
+        return;
+
+    if (IpcSpawnMenu(&menu->proc, screenX, screenY))
+        menu->isOpen = true;
+}
+
+// Terminate the child window (if any) and reset state.
+void CloseMenu(Menu *menu)
+{
+    if (!menu->isOpen)
+        return;
+    IpcCloseMenu(&menu->proc);
+    menu->isOpen = false;
+}
+
+// Poll the IPC pipe for a click result and dispatch the corresponding action.
+void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *items)
+{
+    if (!menu->isOpen)
+        return;
+
+    int  id       = -1;
+    bool gotClick = IpcPollMenu(&menu->proc, &id);
+
+    // The child also flips proc.running to false when it exits without a
+    // click (user closed/clicked away); mirror that into menu->isOpen.
+    if (!menu->proc.running)
+        menu->isOpen = false;
+
+    if (!gotClick)
+        return;
+
+    switch (id)
     {
     case MENU_ITEM_RED:
         pup->color = RED;
@@ -40,37 +77,16 @@ void MenuActions(Puppet *pup, Menu *menu)
     case MENU_ITEM_BLUE:
         pup->color = BLUE;
         break;
+    case MENU_ITEM_ITEM:
+    {
+        // Spawn the ball just to the right of the puppet's bounding box.
+        int x = (int)(pup->bounds.x + pup->bounds.w + 50);
+        int y = (int)(pup->bounds.y);
+        SpawnItem(items, x, y);
+        break;
+    }
     // case ...
     default:
         break;
     }
-}
-
-// Computes the layout of the menu based on the puppet's position and menu settings. // TODO: The menu should get it's own window
-MenuLayout ComputeMenuLayout(Puppet *pup, Menu *menu)
-{
-    int pupBox = (int)(2 * pup->radius);
-    int menuH  = menu->isOpen ? (menu->itemCount * menu->itemHeight) : 0;
-    int menuW  = menu->isOpen ? menu->width : 0;
-    int x      = pupBox + menu->padding;
-    int y      = pupBox - menuH;
-
-    return (MenuLayout){
-        .pupBox = pupBox,
-        .menuH  = menuH,
-        .menuW  = menuW,
-        .x      = x,
-        .y      = y,
-    };
-}
-
-// Returns the rectangle area of the i-th menu item, used for click detection and rendering.
-Rectangle GetMenuItemRect(Menu *menu, MenuLayout layout, int i)
-{
-    return (Rectangle){
-        (float)layout.x,
-        (float)(layout.y + i * menu->itemHeight),
-        (float)menu->width,
-        (float)menu->itemHeight,
-    };
 }

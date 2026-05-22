@@ -12,12 +12,20 @@ static Vector2 dragOffset = {0, 0}; // Offset between mouse and the dragged limb
 //  MOUSE
 // =============================================================================
 
+// Cursor position in screen-space coordinates. Uses raylib's portable
+// GetMousePosition() (window-relative) plus GetWindowPosition() so the same
+// code works on every backend GLFW supports.
+Vector2 GetScreenMousePos(void)
+{
+    Vector2 mousePos = GetMousePosition();
+    Vector2 winPos   = GetWindowPosition();
+    return (Vector2){winPos.x + mousePos.x, winPos.y + mousePos.y};
+}
+
 // Get the mouse state relative to the puppet, return the hovered limb index or -1 if none.
 MouseState GetMouseState(Puppet *pup)
 {
-    WPOINT cursorPos;
-    GetCursorPos(&cursorPos);
-    Vector2 screenMouse = {(float)cursorPos.x, (float)cursorPos.y};
+    Vector2 mouseWinPos = GetScreenMousePos();
 
     // Topmost limb wins (iterate in reverse for proper z-ordering).
     for (int i = LIMB_COUNT - 1; i >= 0; i--)
@@ -26,18 +34,18 @@ MouseState GetMouseState(Puppet *pup)
         if (limb.radius <= 0.0f)
             continue;
 
-        float dx = screenMouse.x - limb.pos.x;
-        float dy = screenMouse.y - limb.pos.y;
+        float dx = mouseWinPos.x - limb.pos.x;
+        float dy = mouseWinPos.y - limb.pos.y;
         if ((dx * dx + dy * dy) <= limb.radius * limb.radius)
         {
             return (MouseState){
-                .screenMouse = screenMouse,
+                .mouseWinPos = mouseWinPos,
                 .hoveredLimb = i};
         }
     }
 
     return (MouseState){
-        .screenMouse = screenMouse,
+        .mouseWinPos = mouseWinPos,
         .hoveredLimb = -1};
 }
 
@@ -54,8 +62,8 @@ void DragPuppet(Puppet *pup)
     {
         pup->draggedLimb = ms.hoveredLimb;
         PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
-        dragOffset.x     = limb->pos.x - ms.screenMouse.x;
-        dragOffset.y     = limb->pos.y - ms.screenMouse.y;
+        dragOffset.x     = limb->pos.x - ms.mouseWinPos.x;
+        dragOffset.y     = limb->pos.y - ms.mouseWinPos.y;
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
@@ -68,8 +76,8 @@ void DragPuppet(Puppet *pup)
         PuppetLimb *limb = &pup->limbs[pup->draggedLimb];
         // Store the previous position so verlet preserves the throw velocity on release.
         limb->oldPos = limb->pos;
-        limb->pos.x  = ms.screenMouse.x + dragOffset.x;
-        limb->pos.y  = ms.screenMouse.y + dragOffset.y;
+        limb->pos.x  = ms.mouseWinPos.x + dragOffset.x;
+        limb->pos.y  = ms.mouseWinPos.y + dragOffset.y;
     }
 }
 
@@ -77,31 +85,20 @@ void DragPuppet(Puppet *pup)
 //  MENU INPUTS
 // =============================================================================
 
-// Right-click puppet to open/close the menu
+// Right-click the puppet to open (or close) the menu in its own window,
 void ToggleMenu(Puppet *pup, Menu *menu)
 {
-    if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-        menu->isOpen = !menu->isOpen;
-}
+    if (!IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+        return;
 
-// Get the clicked menu item id, or -1 if none. Closes the menu if an item was clicked.
-int GetClickedMenuItem(Menu *menu, Puppet *pup)
-{
-    if (!menu->isOpen)
-        return -1;
-    if (!IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        return -1;
-
-    Vector2    m      = GetMousePosition();
-    MenuLayout layout = ComputeMenuLayout(pup, menu);
-
-    for (int i = 0; i < menu->itemCount; i++)
+    if (menu->isOpen)
     {
-        if (CheckCollisionPointRec(m, GetMenuItemRect(menu, layout, i)))
-        {
-            menu->isOpen = false;
-            return menu->items[i].id;
-        }
+        CloseMenu(menu);
+        return;
     }
-    return -1;
+
+    // Location of the menu, next to the puppet
+    int x = (int)(pup->bounds.x + pup->bounds.w + MENU_PADDING);
+    int y = (int)pup->bounds.y;
+    OpenMenu(menu, x, y);
 }
