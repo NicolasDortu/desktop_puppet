@@ -86,18 +86,15 @@ static int BuildLimbsMessage(const Puppet *pup, char *out, int outCap)
     return written;
 }
 
-// Push every limb away from `it->ball` if they overlap. Both sides are flagged
-// movable so the overlap is split 50/50: this side commits the limb move, the
-// ball move is discarded next frame when the BALL message overwrites it->ball.
-// The child does the symmetric half on its end against its limb snapshot.
+// Push every limb away from `it->ball` if they overlap. Each side's local
+// snapshot of the other particle is non-dragged (we don't sync isDragged over
+// IPC), so ResolveCirclesCollisions splits the overlap 50/50; the foreign
+// move is harmless because the next IPC message overwrites that snapshot.
 static void CollideItemAgainstPuppet(Item *it, Puppet *pup)
 {
     for (int j = 0; j < LIMB_COUNT; j++)
     {
-        if (pup->body.draggedParticle == j)
-            continue;
-
-        ResolveCircles(&it->ball, &pup->limbs[j], true, true);
+        ResolveCirclesCollisions(&it->ball, &pup->limbs[j]);
     }
 }
 
@@ -179,7 +176,6 @@ int RunItem(int argc, char **argv)
     Body body = {
         .particles       = &ball,
         .particleCount   = 1,
-        .draggedParticle = -1,
         .bones           = NULL,
         .boneCount       = 0,
         .cfg = (PhysicsConfig){
@@ -192,8 +188,9 @@ int RunItem(int argc, char **argv)
     };
 
     // -- Latest puppet snapshot received from parent --
+    // Zero-init so each limb's isDragged stays false (we never sync drag state).
     int      limbCount = 0;
-    Particle limbs[MAX_LIMBS];
+    Particle limbs[MAX_LIMBS] = {0};
 
     while (!WindowShouldClose())
     {
@@ -232,12 +229,11 @@ int RunItem(int argc, char **argv)
         // -- 3. Verlet integration + wall bounces --
         ApplyPhysics(&body, screen.screenWidth, screen.screenHeight);
 
-        // -- 4. Collide against received puppet limbs. Both sides are flagged
-        //       movable so the overlap is split 50/50: the ball move is committed,
-        //       the limb move is harmless (overwritten by the next LIMBS message).
-        //       The parent does the symmetric half against its real limbs.
+        // -- 4. Collide against received puppet limbs. Neither side's snapshot
+        //       is flagged dragged, so the overlap is split 50/50; the parent
+        //       does the symmetric half against its real limbs.
         for (int i = 0; i < limbCount; i++)
-            ResolveCircles(&ball, &limbs[i], true, true);
+            ResolveCirclesCollisions(&ball, &limbs[i]);
 
         // -- 5. Move the OS window so the ball stays centered in it --
         SetWindowPosition((int)(ball.pos.x - ITEM_RADIUS), (int)(ball.pos.y - ITEM_RADIUS));

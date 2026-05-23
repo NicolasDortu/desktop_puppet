@@ -9,12 +9,11 @@
 //  VERLET INTEGRATION
 // =============================================================================
 
-// Advance a single particle by one frame using Verlet integration.
+// Advance a single particle by one frame using Verlet Integration.
 //
 // In Verlet, velocity is implicit:  v = pos - oldPos
-// We derive v, apply friction & gravity, move the particle, then handle wall
-// collisions by reflecting `oldPos` so the next frame's implicit velocity
-// points away from the wall.
+// We derive v, apply friction & gravity, move the particle, then handle wall collisions
+// by reflecting `oldPos` so the next frame's implicit velocity points away from the wall.
 static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, int screenWidth, int screenHeight)
 {
     // --- Derive velocity from last frame's displacement, apply friction ---
@@ -61,14 +60,8 @@ static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, int 
 // =============================================================================
 
 // Push two overlapping circles apart along their center-to-center axis.
-// `moveA` / `moveB` choose which side absorbs the correction:
-//   - both true  -> split the overlap 50/50
-//   - one true   -> the moving side absorbs the full overlap
-//   - both false -> no-op
-void ResolveCircles(Particle *a, Particle *b, bool moveA, bool moveB)
+void ResolveCirclesCollisions(Particle *a, Particle *b)
 {
-    if (!moveA && !moveB) return;
-
     float dx      = b->pos.x - a->pos.x;
     float dy      = b->pos.y - a->pos.y;
     float dist2   = dx * dx + dy * dy;
@@ -78,18 +71,29 @@ void ResolveCircles(Particle *a, Particle *b, bool moveA, bool moveB)
         return;
 
     float dist    = sqrtf(dist2);
-    float share   = (moveA && moveB) ? 0.5f : 1.0f;
+    float share   = (a->isDragged || b->isDragged) ? 1.0f : 0.5f; // if a particle is dragged, the other absord 100% of the overlap
     float overlap = (minDist - dist) / dist * share;
     float offsetX = dx * overlap;
     float offsetY = dy * overlap;
 
-    if (moveA) { a->pos.x -= offsetX; a->pos.y -= offsetY; }
-    if (moveB) { b->pos.x += offsetX; b->pos.y += offsetY; }
+    if (!a->isDragged) { a->pos.x -= offsetX; a->pos.y -= offsetY; }
+    if (!b->isDragged) { b->pos.x += offsetX; b->pos.y += offsetY; }
+}
+
+// Push every pair of overlapping particles in `body` apart.
+static void ResolveBodyCollisions(Body *body)
+{
+    for (int i = 0; i < body->particleCount; i++)
+    {
+        for (int j = i + 1; j < body->particleCount; j++)
+        {
+            ResolveCirclesCollisions(&body->particles[i], &body->particles[j]);
+        }
+    }
 }
 
 // Pull each pair of bone-connected particles back to the bone's rest length.
 // Hard bones snap exactly; soft bones apply only `stiffness` of the correction.
-// The dragged particle is an immovable anchor — the other end absorbs the full move.
 static void UpdateBones(Body *body)
 {
     for (int i = 0; i < body->boneCount; i++)
@@ -106,34 +110,16 @@ static void UpdateBones(Body *body)
         if (distance < 1e-6f) continue;  // avoid division by zero on coincident limbs
 
         // --- Compute the per-limb correction ---
-        //   error    = how far the bone is from its rest length
-        //   percent  = fraction of the error each endpoint must absorb
-        //              (0.5 = split equally, multiplied by stiffness for soft bones)
         float stiffness = bone->soft ? body->cfg.stiffness : 1.0f;
-        float error     = distance - bone->length;
-        float percent   = (error / distance) * 0.5f * stiffness;
+        float error     = distance - bone->length;                  // how far the bone is from its rest length
+        float percent   = (error / distance) * 0.5f * stiffness;    // fraction of the error each endpoint must absorb
 
         float offsetX = dx * percent;
         float offsetY = dy * percent;
 
         // --- Move both endpoints toward each other (or apart) ---
-        if (body->draggedParticle != bone->particle1) { a->pos.x += offsetX; a->pos.y += offsetY; }
-        if (body->draggedParticle != bone->particle2) { b->pos.x -= offsetX; b->pos.y -= offsetY; }
-    }
-}
-
-// Push every pair of overlapping particles in `body` apart.
-// The dragged particle is an immovable anchor.
-static void ResolveBodyCollisions(Body *body)
-{
-    for (int i = 0; i < body->particleCount; i++)
-    {
-        for (int j = i + 1; j < body->particleCount; j++)
-        {
-            ResolveCircles(&body->particles[i], &body->particles[j],
-                           body->draggedParticle != i,
-                           body->draggedParticle != j);
-        }
+        if (!a->isDragged) { a->pos.x += offsetX; a->pos.y += offsetY; }
+        if (!b->isDragged) { b->pos.x -= offsetX; b->pos.y -= offsetY; }
     }
 }
 
@@ -189,7 +175,7 @@ void ApplyPhysics(Body *body, int screenWidth, int screenHeight)
 {
     for (int i = 0; i < body->particleCount; i++)
     {
-        if (body->draggedParticle != i)
+        if (!body->particles[i].isDragged)
             IntegrateParticle(&body->particles[i], &body->cfg, screenWidth, screenHeight);
     }
 

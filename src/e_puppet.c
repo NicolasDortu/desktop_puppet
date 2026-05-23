@@ -98,7 +98,6 @@ void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vect
     pup->body = (Body){
         .particles       = pup->limbs,
         .particleCount   = LIMB_COUNT,
-        .draggedParticle = -1,
         .bones           = pup->bones,
         .boneCount       = BONE_COUNT,
         .cfg = (PhysicsConfig){

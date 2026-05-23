@@ -43,6 +43,7 @@ int GetHoveredParticle(const Body *body, Vector2 mouseScreenPos)
 void DragBody(Body *body)
 {
     static Vector2 dragOffset = {0, 0};
+    static int     draggedIdx = -1;
 
     Vector2 mouse = GetScreenMousePos();
 
@@ -51,19 +52,24 @@ void DragBody(Body *body)
         int hovered = GetHoveredParticle(body, mouse);
         if (hovered != -1)
         {
-            body->draggedParticle = hovered;
-            Particle *p           = &body->particles[hovered];
-            dragOffset.x          = p->pos.x - mouse.x;
-            dragOffset.y          = p->pos.y - mouse.y;
+            Particle *p             = &body->particles[hovered];
+            draggedIdx              = hovered;
+            p->isDragged            = true;
+            dragOffset.x            = p->pos.x - mouse.x;
+            dragOffset.y            = p->pos.y - mouse.y;
         }
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
-        body->draggedParticle = -1;
-
-    if (body->draggedParticle != -1)
     {
-        Particle *p = &body->particles[body->draggedParticle];
+        if (draggedIdx != -1)
+            body->particles[draggedIdx].isDragged = false;
+        draggedIdx = -1;
+    }
+
+    if (draggedIdx != -1)
+    {
+        Particle *p = &body->particles[draggedIdx];
         p->oldPos   = p->pos; // Preserve verlet throw velocity on release.
         p->pos.x    = mouse.x + dragOffset.x;
         p->pos.y    = mouse.y + dragOffset.y;
