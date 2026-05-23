@@ -1,7 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "puppet.h"
+#include "config.h"
 
 // =============================================================================
 // DECLARATIONS
@@ -18,9 +18,8 @@ typedef struct
 //  FUNCTIONS
 // =============================================================================
 
-void              InitOverlayWindow(int width, int height); // Transparent, undecorated, topmost; shared by every role
+void              InitOverlayWindow(int width, int height);
 ScreenWidthHeight GetScreenSize(void);
-void              UpdateWindow(Puppet *pup);
-void              DrawPuppet(Puppet *pup);
+void              UpdateWindow(BoundBox b);
 
 #endif

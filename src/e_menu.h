@@ -1,10 +1,9 @@
-#ifndef MENU_H
-#define MENU_H
+#ifndef E_MENU_H
+#define E_MENU_H
 
 #include "raylib.h"
-#include "puppet.h"
+#include "e_item.h"
 #include "ipc.h"
-#include "item.h"
 
 // =============================================================================
 //  DECLARATIONS
@@ -53,5 +52,6 @@ Menu CreateMenu(void);                                                  // Build
 void OpenMenu(Menu *menu, int screenX, int screenY);                    // Spawn the menu child window
 void CloseMenu(Menu *menu);                                             // Close the child window if open
 void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *items);         // Poll IPC and apply the chosen action
+int  RunMenu  (int argc, char **argv);
 
 #endif

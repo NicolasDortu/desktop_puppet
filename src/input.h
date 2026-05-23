@@ -1,25 +1,22 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "puppet.h"
-#include "menu.h"
+#include "physics.h"
 
-// =============================================================================
-//  DECLARATIONS
-// =============================================================================
-
-typedef struct
-{
-    Vector2 mouseWinPos; // Position of the mouse in the window
-    int     hoveredLimb; // Index of the hovered limb, or -1 if none
-} MouseState;
+#include "raylib.h"
 
 // =============================================================================
 //  FUNCTIONS
 // =============================================================================
 
-Vector2 GetScreenMousePos(void);             // Cursor in screen-space coords (shared by every role)
-void    DragPuppet(Puppet *pup);
-void    ToggleMenu(Puppet *pup, Menu *menu);
+// -- Mouse helpers --
+
+Vector2 GetScreenMousePos (void);
+bool    MouseInsideCircle (Vector2 mouseScreen, Vector2 center, float radius);
+
+// -- Generic body dragging --
+
+int     GetHoveredParticle(const Body *body, Vector2 mouseScreenPos);
+void    DragBody          (Body *body);
 
 #endif

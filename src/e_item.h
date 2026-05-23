@@ -1,7 +1,7 @@
-#ifndef ITEM_H
-#define ITEM_H
+#ifndef E_ITEM_H
+#define E_ITEM_H
 
-#include "puppet.h"
+#include "e_puppet.h"
 #include "ipc.h"
 
 // =============================================================================
@@ -15,9 +15,7 @@ typedef struct
 {
     ChildPipe proc;
     bool      hasState; // true after the first BALL message has been received
-    float     x, y;     // current ball center (screen coords)
-    float     oldX, oldY;
-    float     r;
+    Particle  ball;     // ball state in screen coords
 } Item;
 
 typedef struct
@@ -30,8 +28,9 @@ typedef struct
 // =============================================================================
 
 ItemRegistry CreateItemRegistry(void);
-bool         SpawnItem(ItemRegistry *reg, int posX, int posY); // launches bin/item.exe
+bool         SpawnItem(ItemRegistry *reg, int posX, int posY);  // launches bin/item.exe
 void         UpdateItems(ItemRegistry *reg, Puppet *pup);       // poll IPC, collide, broadcast puppet state
 void         CloseAllItems(ItemRegistry *reg);                  // terminate every live child
+int          RunItem  (int argc, char **argv);
 
 #endif
