@@ -71,7 +71,7 @@ typedef struct Puppet
 // Build a fully-initialized puppet at `startPos`. Writes into `*pup` so the
 // internal Body keeps valid pointers to the caller's `limbs`/`bones` arrays.
 void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vector2 startPos);
-int  RunPuppet  (int argc, char **argv);
+void DrawPuppet (const Puppet *pup);
 
 
 #endif

@@ -1,10 +1,6 @@
 #include "e_puppet.h"
-#include "e_menu.h"
-#include "e_item.h"
 #include "config.h"
 #include "physics.h"
-#include "input.h"
-#include "renderer.h"
 
 #include <string.h>
 
@@ -79,7 +75,6 @@ static void InitPuppetBones(Puppet *pup)
 // =============================================================================
 
 // Build a fully-initialized puppet (limbs, bones, default physics) at `startPos`.
-// Writes into `*pup` so the embedded Body keeps valid pointers to pup's arrays.
 void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vector2 startPos)
 {
     *pup = (Puppet){0};
@@ -106,32 +101,10 @@ void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vect
 }
 
 // =============================================================================
-//  INPUTS
-// =============================================================================
-
-// Right-click the puppet to open (or close) the menu in its own window,
-static void ToggleMenu(Puppet *pup, Menu *menu)
-{
-    if (!IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
-        return;
-
-    if (menu->isOpen)
-    {
-        CloseMenu(menu);
-        return;
-    }
-
-    // Location of the menu, next to the puppet
-    int x = (int)(pup->body.bounds.x + pup->body.bounds.w + MENU_PADDING);
-    int y = (int)pup->body.bounds.y;
-    OpenMenu(menu, x, y);
-}
-
-// =============================================================================
 //  RENDERING
 // =============================================================================
 
-static void DrawPuppet(Puppet *pup)
+void DrawPuppet(const Puppet *pup)
 {
     ClearBackground(BLANK);
 
@@ -145,53 +118,4 @@ static void DrawPuppet(Puppet *pup)
         Vector2 local = {limb.pos.x - winOriginX, limb.pos.y - winOriginY};
         DrawCircleV(local, limb.radius, pup->limbColors[i]);
     }
-}
-
-// =============================================================================
-//  PUPPET ROLE
-// =============================================================================
-
-int RunPuppet(int argc, char **argv)
-{
-    (void)argc;
-    (void)argv;
-
-    // -- Setup --
-    float radius = 100.0f;
-    InitOverlayWindow((int)(2 * radius), (int)(2 * radius));
-
-    ScreenWidthHeight win = GetScreenSize();
-
-    Vector2      startPos = {win.screenWidth / 2.0f, win.screenHeight / 2.0f};
-    Puppet       pup;
-    CreatePuppet(&pup, "buddy", YELLOW, radius, startPos);
-    Menu         menu     = CreateMenu();
-    ItemRegistry items    = CreateItemRegistry();
-
-    SetTargetFPS(TARGET_FPS);
-
-    // -- Main loop --
-    while (!WindowShouldClose())
-    {
-        // Input
-        DragBody(&pup.body);
-        ToggleMenu(&pup, &menu);
-        MenuActions(&pup, &menu, &items);
-
-        // Simulation
-        ApplyPhysics(&pup.body, win.screenWidth, win.screenHeight);
-        UpdateItems(&items, &pup);
-        UpdateWindow(pup.body.bounds);
-
-        // Render
-        BeginDrawing();
-            DrawPuppet(&pup);
-        EndDrawing();
-    }
-
-    // -- Teardown --
-    CloseAllItems(&items);
-    CloseMenu(&menu);
-    CloseWindow();
-    return 0;
 }

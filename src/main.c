@@ -1,6 +1,4 @@
-#include "e_puppet.h"
-#include "e_menu.h"
-#include "e_item.h"
+#include "roles.h"
 
 #include <string.h>
 
@@ -8,13 +6,12 @@
 //  ROLE ATTRIBUTION
 // =============================================================================
 //
-//  The main binary plays three different roles depending on its first
-//  argument; children spawn each other by re-launching the same exe with the
-//  appropriate subcommand:
+//  The main binary plays three different roles depending on its first argument.
+//  Children spawn each other by re-launching the same exe with a subcommand:
 //
-//      main.exe                 -> puppet (the main window)
-//      main.exe menu  <x> <y>   -> menu popup at screen (x, y)
-//      main.exe item  <x> <y>   -> draggable ball at screen (x, y)
+//      main.exe                      -> puppet (the main window)
+//      main.exe menu|item  <x> <y>   -> menu|item popup at screen (x, y)
+//
 // =============================================================================
 
 int main(int argc, char **argv)
