@@ -6,19 +6,44 @@
 #include <string.h>
 
 // =============================================================================
-//  HELPERS
+//  IPC OVERVIEW
+// =============================================================================
+//
+//  Every child process is just THIS same .exe re-launched with a different
+//  first argument (e.g. `main.exe item 300 400`). Parent and child talk
+//  through anonymous Win32 pipes wired to the child's stdin and stdout:
+//
+//      parent  ---- (pipe to child stdin)  ---->  child
+//      parent  <--- (pipe to child stdout) ----   child
+//
+//  Two patterns are supported:
+//
+//    1. ONE-SHOT (menu): the child only writes a single result to its stdout
+//       and exits. The parent reads it via IpcPollMenu. No parent->child pipe.
+//
+//    2. BIDIRECTIONAL (items): a long-lived child that keeps reading
+//       newline-terminated commands from its stdin and writing its state back
+//       to its stdout. Parent calls IpcReadLine / IpcWriteLine, never blocks.
+//
+//  Reads are always NON-BLOCKING: PeekNamedPipe first, ReadFile only what is
+//  already buffered, then look for the next '\n' in a small per-pipe line
+//  buffer. The same low-level helpers (MakePipe / ReadAvailable / DrainLine)
+//  are shared by the parent and child sides.
 // =============================================================================
 
-// Build an absolute path to the running executable. Children are always
-// spawned by re-launching this same binary with a different subcommand.
+// =============================================================================
+//  LOW-LEVEL HELPERS
+// =============================================================================
+
+// Build an absolute path to the running executable. Children are spawned by
+// re-launching this same binary with a different subcommand.
 static bool BuildSelfExePath(char *out, size_t outSize)
 {
     DWORD n = GetModuleFileNameA(NULL, out, (DWORD)outSize);
     return n > 0 && n < outSize;
 }
 
-// Build a CreateProcess-ready command line of the form:
-//     "<self.exe>" <subcommand> <extraArgs>
+// Build a CreateProcess-ready command line:  "<self.exe>" <subcommand> <extraArgs>
 static bool BuildSelfCommandLine(const char *subcommand,
                                  const char *extraArgs,
                                  char       *out,
@@ -35,198 +60,148 @@ static bool BuildSelfCommandLine(const char *subcommand,
     return written > 0 && (size_t)written < outSize;
 }
 
-// =============================================================================
-//  IPC IMPLEMENTATION
-// =============================================================================
-
-bool IpcSpawnMenu(MenuProcess *mp, int posX, int posY)
+// Create an anonymous pipe. CreatePipe with bInheritHandle=TRUE makes BOTH
+// ends inheritable; we then clear the inherit flag on the end the PARENT
+// keeps, so the spawned child only inherits the end it actually needs.
+//
+//   parentReadsThisPipe = true  -> *outRead  stays in parent (non-inheritable)
+//                                  *outWrite is handed to the child
+//   parentReadsThisPipe = false -> *outWrite stays in parent (non-inheritable)
+//                                  *outRead  is handed to the child
+static bool MakePipe(HANDLE *outRead, HANDLE *outWrite, bool parentReadsThisPipe)
 {
-    mp->hProcess = NULL;
-    mp->hRead    = NULL;
-    mp->running  = false;
-
-    // -- Create the anonymous pipe used by the child's stdout --
-    SECURITY_ATTRIBUTES sa = {sizeof sa, NULL, TRUE}; // inheritable handles
-    HANDLE              hRead  = NULL;
-    HANDLE              hWrite = NULL;
-    if (!CreatePipe(&hRead, &hWrite, &sa, 0))
+    SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
+    if (!CreatePipe(outRead, outWrite, &sa, 0))
         return false;
-    // The parent's read end must NOT leak into the child.
-    SetHandleInformation(hRead, HANDLE_FLAG_INHERIT, 0);
-
-    // -- Build the command line: re-launch this exe with the "menu" subcommand --
-    char extra[64];
-    snprintf(extra, sizeof extra, "%d %d", posX, posY);
-
-    char cmdline[MAX_PATH + 128];
-    if (!BuildSelfCommandLine("menu", extra, cmdline, sizeof cmdline))
-    {
-        CloseHandle(hRead);
-        CloseHandle(hWrite);
-        return false;
-    }
-
-    // -- Spawn the child with its stdout wired to our pipe --
-    STARTUPINFOA si = {0};
-    si.cb           = sizeof si;
-    si.dwFlags      = STARTF_USESTDHANDLES;
-    si.hStdOutput   = hWrite;
-    si.hStdError    = GetStdHandle(STD_ERROR_HANDLE);
-    si.hStdInput    = GetStdHandle(STD_INPUT_HANDLE);
-
-    PROCESS_INFORMATION pi = {0};
-    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
-
-    // We never write into the pipe; close our copy so the child's exit closes it.
-    CloseHandle(hWrite);
-
-    if (!ok)
-    {
-        CloseHandle(hRead);
-        return false;
-    }
-    CloseHandle(pi.hThread);
-
-    mp->hProcess = pi.hProcess;
-    mp->hRead    = hRead;
-    mp->running  = true;
+    HANDLE keep = parentReadsThisPipe ? *outRead : *outWrite;
+    SetHandleInformation(keep, HANDLE_FLAG_INHERIT, 0);
     return true;
 }
 
-bool IpcPollMenu(MenuProcess *mp, int *outId)
+// Non-blocking append: peek the pipe, then read at most what is already
+// buffered into `buf[*len .. cap]`. If the buffer is full WITHOUT a newline
+// we drop it to avoid deadlocking on a runaway peer.
+static void ReadAvailable(HANDLE pipe, char *buf, int *len, int cap)
 {
-    if (!mp->running)
-        return false;
-
-    bool gotId = false;
-
-    // -- Non-blocking read of whatever the child has written so far --
     DWORD avail = 0;
-    if (PeekNamedPipe(mp->hRead, NULL, 0, NULL, &avail, NULL) && avail > 0)
+    if (!PeekNamedPipe(pipe, NULL, 0, NULL, &avail, NULL) || avail == 0)
+        return;
+
+    int space = cap - *len;
+    if (space <= 0)
     {
-        char  buf[64];
-        DWORD toRead = (avail < sizeof buf - 1) ? avail : (DWORD)(sizeof buf - 1);
-        DWORD read   = 0;
-        if (ReadFile(mp->hRead, buf, toRead, &read, NULL) && read > 0)
-        {
-            buf[read] = '\0';
-            *outId    = atoi(buf);
-            gotId     = true;
-        }
+        *len  = 0;     // discard: no '\n' was found in a full buffer
+        space = cap;
     }
 
-    // -- Reap the child if it has exited (either after a click or by user close) --
-    if (WaitForSingleObject(mp->hProcess, 0) == WAIT_OBJECT_0)
-        IpcCloseMenu(mp);
-
-    return gotId;
+    DWORD toRead = (avail < (DWORD)space) ? avail : (DWORD)space;
+    DWORD read   = 0;
+    if (ReadFile(pipe, buf + *len, toRead, &read, NULL) && read > 0)
+        *len += (int)read;
 }
 
-void IpcCloseMenu(MenuProcess *mp)
+// If `buf` contains a newline, copy the line (without the '\n') into `out`,
+// shift remaining bytes to the front of `buf`, and return true.
+static bool DrainLine(char *buf, int *len, char *out, int outCap)
 {
-    if (mp->hProcess != NULL)
+    for (int i = 0; i < *len; i++)
     {
-        // If still alive (user cancelled from parent side), force it to quit.
-        if (WaitForSingleObject(mp->hProcess, 0) != WAIT_OBJECT_0)
-            TerminateProcess(mp->hProcess, 0);
-        CloseHandle(mp->hProcess);
-    }
-    if (mp->hRead != NULL)
-        CloseHandle(mp->hRead);
+        if (buf[i] != '\n') continue;
 
-    mp->hProcess = NULL;
-    mp->hRead    = NULL;
-    mp->running  = false;
-}
+        int copy = (i > outCap - 1) ? outCap - 1 : i;
+        memcpy(out, buf, copy);
+        out[copy] = '\0';
 
-// =============================================================================
-//  BIDIRECTIONAL CHILD (parent side)
-// =============================================================================
-
-// Try to extract a newline-terminated line from cp->rxBuf into `line`.
-// Shifts any remaining bytes to the start of the buffer.
-static bool DrainLine(ChildPipe *cp, char *line, int lineCap)
-{
-    for (int i = 0; i < cp->rxLen; i++)
-    {
-        if (cp->rxBuf[i] == '\n')
-        {
-            int copy = i;
-            if (copy > lineCap - 1)
-                copy = lineCap - 1;
-            memcpy(line, cp->rxBuf, copy);
-            line[copy] = '\0';
-
-            int remaining = cp->rxLen - (i + 1);
-            if (remaining > 0)
-                memmove(cp->rxBuf, cp->rxBuf + i + 1, remaining);
-            cp->rxLen = remaining;
-            return true;
-        }
+        int remaining = *len - (i + 1);
+        if (remaining > 0)
+            memmove(buf, buf + i + 1, remaining);
+        *len = remaining;
+        return true;
     }
     return false;
 }
 
-bool IpcSpawnBidi(ChildPipe *cp, const char *subcommand, const char *extraArgs)
+// CreateProcess wrapper. `hStdin` may be NULL to inherit our own stdin.
+// Returns the child process handle on success, NULL on failure.
+static HANDLE SpawnChild(char *cmdline, HANDLE hStdin, HANDLE hStdout)
 {
-    cp->hProcess    = NULL;
-    cp->hReadStdout = NULL;
-    cp->hWriteStdin = NULL;
-    cp->running     = false;
-    cp->rxLen       = 0;
-
-    SECURITY_ATTRIBUTES sa = {sizeof sa, NULL, TRUE};
-
-    // -- Pipe 1: child stdout -> parent --
-    HANDLE childStdoutRead  = NULL;
-    HANDLE childStdoutWrite = NULL;
-    if (!CreatePipe(&childStdoutRead, &childStdoutWrite, &sa, 0))
-        return false;
-    SetHandleInformation(childStdoutRead, HANDLE_FLAG_INHERIT, 0);
-
-    // -- Pipe 2: parent -> child stdin --
-    HANDLE childStdinRead  = NULL;
-    HANDLE childStdinWrite = NULL;
-    if (!CreatePipe(&childStdinRead, &childStdinWrite, &sa, 0))
-    {
-        CloseHandle(childStdoutRead);
-        CloseHandle(childStdoutWrite);
-        return false;
-    }
-    SetHandleInformation(childStdinWrite, HANDLE_FLAG_INHERIT, 0);
-
-    // -- Re-launch this same exe with the requested subcommand --
-    char cmdline[MAX_PATH + 256];
-    if (!BuildSelfCommandLine(subcommand, extraArgs, cmdline, sizeof cmdline))
-    {
-        CloseHandle(childStdoutRead);  CloseHandle(childStdoutWrite);
-        CloseHandle(childStdinRead);   CloseHandle(childStdinWrite);
-        return false;
-    }
-
     STARTUPINFOA si = {0};
     si.cb         = sizeof si;
     si.dwFlags    = STARTF_USESTDHANDLES;
-    si.hStdInput  = childStdinRead;
-    si.hStdOutput = childStdoutWrite;
+    si.hStdInput  = (hStdin != NULL) ? hStdin : GetStdHandle(STD_INPUT_HANDLE);
+    si.hStdOutput = hStdout;
     si.hStdError  = GetStdHandle(STD_ERROR_HANDLE);
 
     PROCESS_INFORMATION pi = {0};
-    BOOL ok = CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    if (!CreateProcessA(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+        return NULL;
+    CloseHandle(pi.hThread);
+    return pi.hProcess;
+}
 
-    // Parent doesn't use the child-side ends of either pipe.
+// Zero-wait "has it exited?" poll.
+static bool ProcessExited(HANDLE hProcess)
+{
+    return hProcess != NULL && WaitForSingleObject(hProcess, 0) == WAIT_OBJECT_0;
+}
+
+// Terminate-if-alive then close, in one place.
+static void KillAndClose(HANDLE hProcess)
+{
+    if (hProcess == NULL) return;
+    if (!ProcessExited(hProcess))
+        TerminateProcess(hProcess, 0);
+    CloseHandle(hProcess);
+}
+
+// =============================================================================
+//  BIDIRECTIONAL CHILD  (parent side)
+// =============================================================================
+//
+//  Used for both long-lived workers (items) AND one-shot children (the menu).
+//  One-shot children simply never read from their stdin and write a single
+//  line of result to their stdout before exiting; the parent reads it via
+//  IpcReadLine, then ProcessExited flips `running` to false and the slot
+//  is reaped via IpcCloseChild.
+
+bool IpcSpawnBidi(ChildPipe *cp, const char *subcommand, const char *extraArgs)
+{
+    *cp = (ChildPipe){0};
+
+    // Pipe 1: child stdout -> parent
+    HANDLE childStdoutRead, childStdoutWrite;
+    if (!MakePipe(&childStdoutRead, &childStdoutWrite, /*parentReadsThisPipe=*/true))
+        return false;
+
+    // Pipe 2: parent -> child stdin
+    HANDLE childStdinRead, childStdinWrite;
+    if (!MakePipe(&childStdinRead, &childStdinWrite, /*parentReadsThisPipe=*/false))
+    {
+        CloseHandle(childStdoutRead); CloseHandle(childStdoutWrite);
+        return false;
+    }
+
+    char cmdline[MAX_PATH + 256];
+    if (!BuildSelfCommandLine(subcommand, extraArgs, cmdline, sizeof cmdline))
+    {
+        CloseHandle(childStdoutRead); CloseHandle(childStdoutWrite);
+        CloseHandle(childStdinRead);  CloseHandle(childStdinWrite);
+        return false;
+    }
+
+    HANDLE hProcess = SpawnChild(cmdline, childStdinRead, childStdoutWrite);
+    // Parent never uses the child-side ends. Closing them now means each pipe
+    // automatically EOFs / breaks when the child exits.
     CloseHandle(childStdoutWrite);
     CloseHandle(childStdinRead);
-
-    if (!ok)
+    if (hProcess == NULL)
     {
         CloseHandle(childStdoutRead);
         CloseHandle(childStdinWrite);
         return false;
     }
-    CloseHandle(pi.hThread);
 
-    cp->hProcess    = pi.hProcess;
+    cp->hProcess    = hProcess;
     cp->hReadStdout = childStdoutRead;
     cp->hWriteStdin = childStdinWrite;
     cp->running     = true;
@@ -238,38 +213,15 @@ bool IpcReadLine(ChildPipe *cp, char *line, int lineCap)
     if (!cp->running || lineCap < 2)
         return false;
 
-    // Reap exited child first so callers see `running=false` promptly.
-    if (WaitForSingleObject(cp->hProcess, 0) == WAIT_OBJECT_0)
-    {
-        // Still try one final drain of buffered + pipe bytes below.
-    }
-
-    DWORD avail = 0;
-    if (PeekNamedPipe(cp->hReadStdout, NULL, 0, NULL, &avail, NULL) && avail > 0)
-    {
-        int space = (int)sizeof cp->rxBuf - cp->rxLen;
-        if (space > 0)
-        {
-            DWORD toRead = (avail < (DWORD)space) ? avail : (DWORD)space;
-            DWORD read   = 0;
-            if (ReadFile(cp->hReadStdout, cp->rxBuf + cp->rxLen, toRead, &read, NULL) && read > 0)
-                cp->rxLen += (int)read;
-        }
-        else
-        {
-            // Buffer full without a newline: discard to avoid deadlock.
-            cp->rxLen = 0;
-        }
-    }
-
-    if (DrainLine(cp, line, lineCap))
+    // 1. Pull whatever bytes the child has written into our line buffer.
+    // 2. Try to extract one complete line from the buffer.
+    ReadAvailable(cp->hReadStdout, cp->rxBuf, &cp->rxLen, (int)sizeof cp->rxBuf);
+    if (DrainLine(cp->rxBuf, &cp->rxLen, line, lineCap))
         return true;
 
-    // Mark dead only after we've drained everything we could.
-    if (WaitForSingleObject(cp->hProcess, 0) == WAIT_OBJECT_0)
-    {
+    // No complete line AND the child has exited: nothing more is coming.
+    if (ProcessExited(cp->hProcess))
         cp->running = false;
-    }
     return false;
 }
 
@@ -278,11 +230,11 @@ bool IpcWriteLine(ChildPipe *cp, const char *line)
     if (!cp->running)
         return false;
 
-    size_t n = strlen(line);
-    DWORD  written = 0;
-    if (!WriteFile(cp->hWriteStdin, line, (DWORD)n, &written, NULL) || written != n)
+    DWORD n       = (DWORD)strlen(line);
+    DWORD written = 0;
+    if (!WriteFile(cp->hWriteStdin, line, n, &written, NULL) || written != n)
     {
-        cp->running = false;
+        cp->running = false; // broken pipe -> child is gone
         return false;
     }
     return true;
@@ -290,27 +242,19 @@ bool IpcWriteLine(ChildPipe *cp, const char *line)
 
 void IpcCloseChild(ChildPipe *cp)
 {
-    if (cp->hProcess != NULL)
-    {
-        if (WaitForSingleObject(cp->hProcess, 0) != WAIT_OBJECT_0)
-            TerminateProcess(cp->hProcess, 0);
-        CloseHandle(cp->hProcess);
-    }
-    if (cp->hReadStdout != NULL)
-        CloseHandle(cp->hReadStdout);
-    if (cp->hWriteStdin != NULL)
-        CloseHandle(cp->hWriteStdin);
-
-    cp->hProcess    = NULL;
-    cp->hReadStdout = NULL;
-    cp->hWriteStdin = NULL;
-    cp->running     = false;
-    cp->rxLen       = 0;
+    KillAndClose(cp->hProcess);
+    if (cp->hReadStdout != NULL) CloseHandle(cp->hReadStdout);
+    if (cp->hWriteStdin != NULL) CloseHandle(cp->hWriteStdin);
+    *cp = (ChildPipe){0};
 }
 
 // =============================================================================
-//  CHILD-SIDE HELPERS
+//  CHILD-SIDE HELPERS  (used from inside a spawned child process)
 // =============================================================================
+//
+// The child sees its own stdin/stdout as plain HANDLEs. It runs the exact
+// same Peek+Read+DrainLine dance as the parent's IpcReadLine, just against
+// the global child buffer instead of a ChildPipe-owned one.
 
 static HANDLE g_childIn  = NULL;
 static HANDLE g_childOut = NULL;
@@ -324,51 +268,13 @@ void IpcChildInit(void)
     g_childLen = 0;
 }
 
-static bool DrainChildLine(char *line, int lineCap)
-{
-    for (int i = 0; i < g_childLen; i++)
-    {
-        if (g_childBuf[i] == '\n')
-        {
-            int copy = i;
-            if (copy > lineCap - 1)
-                copy = lineCap - 1;
-            memcpy(line, g_childBuf, copy);
-            line[copy] = '\0';
-
-            int remaining = g_childLen - (i + 1);
-            if (remaining > 0)
-                memmove(g_childBuf, g_childBuf + i + 1, remaining);
-            g_childLen = remaining;
-            return true;
-        }
-    }
-    return false;
-}
-
 bool IpcChildReadLine(char *line, int lineCap)
 {
     if (g_childIn == NULL || lineCap < 2)
         return false;
 
-    DWORD avail = 0;
-    if (PeekNamedPipe(g_childIn, NULL, 0, NULL, &avail, NULL) && avail > 0)
-    {
-        int space = (int)sizeof g_childBuf - g_childLen;
-        if (space > 0)
-        {
-            DWORD toRead = (avail < (DWORD)space) ? avail : (DWORD)space;
-            DWORD read   = 0;
-            if (ReadFile(g_childIn, g_childBuf + g_childLen, toRead, &read, NULL) && read > 0)
-                g_childLen += (int)read;
-        }
-        else
-        {
-            g_childLen = 0;
-        }
-    }
-
-    return DrainChildLine(line, lineCap);
+    ReadAvailable(g_childIn, g_childBuf, &g_childLen, (int)sizeof g_childBuf);
+    return DrainLine(g_childBuf, &g_childLen, line, lineCap);
 }
 
 bool IpcChildWriteLine(const char *line)
@@ -376,9 +282,7 @@ bool IpcChildWriteLine(const char *line)
     if (g_childOut == NULL)
         return false;
 
-    size_t n = strlen(line);
-    DWORD  written = 0;
-    if (!WriteFile(g_childOut, line, (DWORD)n, &written, NULL) || written != n)
-        return false;
-    return true;
+    DWORD n       = (DWORD)strlen(line);
+    DWORD written = 0;
+    return WriteFile(g_childOut, line, n, &written, NULL) && written == n;
 }

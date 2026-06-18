@@ -52,7 +52,9 @@ void OpenMenu(Menu *menu, int screenX, int screenY)
     if (menu->isOpen)
         return;
 
-    if (IpcSpawnMenu(&menu->proc, screenX, screenY))
+    char args[64];
+    snprintf(args, sizeof args, "%d %d", screenX, screenY);
+    if (IpcSpawnBidi(&menu->proc, "menu", args))
         menu->isOpen = true;
 }
 
@@ -61,7 +63,7 @@ void CloseMenu(Menu *menu)
 {
     if (!menu->isOpen)
         return;
-    IpcCloseMenu(&menu->proc);
+    IpcCloseChild(&menu->proc);
     menu->isOpen = false;
 }
 
@@ -71,11 +73,14 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *items)
     if (!menu->isOpen)
         return;
 
+    // The menu child prints "<id>\n" on click then exits. Read the single
+    // line (if any) and mirror the child's exit into our isOpen flag.
     int  id       = -1;
-    bool gotClick = IpcPollMenu(&menu->proc, &id);
+    char line[32];
+    bool gotClick = IpcReadLine(&menu->proc, line, sizeof line);
+    if (gotClick)
+        id = atoi(line);
 
-    // The child also flips proc.running to false when it exits without a
-    // click (user closed/clicked away); mirror that into menu->isOpen.
     if (!menu->proc.running)
         menu->isOpen = false;
 
@@ -98,7 +103,7 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *items)
         // Spawn the ball just to the right of the puppet's bounding box.
         int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
         int y = (int)(pup->body.bounds.y);
-        SpawnItem(items, x, y);
+        SpawnItem(items, ITEM_BALL, x, y);
         break;
     }
     // case ...
@@ -113,13 +118,22 @@ static const Color MENU_BG_COLOR = {40, 40, 40, 230};
 // itself before the OS has finished promoting it to foreground.
 #define MENU_FOCUS_GRACE_FRAMES 10
 
+// -- Layout math: items are laid out top-to-bottom, then in a new column.
+//    columns = ceil(count / MENU_MAX_ROWS); rows = min(count, MENU_MAX_ROWS) --
+static int MenuColumns(void) { return (MENU_ITEM_COUNT + MENU_MAX_ROWS - 1) / MENU_MAX_ROWS; }
+static int MenuRows   (void) { return (MENU_ITEM_COUNT < MENU_MAX_ROWS) ? MENU_ITEM_COUNT : MENU_MAX_ROWS; }
+static int MenuItemCol(int i) { return i / MENU_MAX_ROWS; }
+static int MenuItemRow(int i) { return i % MENU_MAX_ROWS; }
+
 int RunMenu(int argc, char **argv)
 {
     int posX = (argc > 2) ? atoi(argv[2]) : 100;
     int posY = (argc > 3) ? atoi(argv[3]) : 100;
 
-    int width  = MENU_WIDTH;
-    int height = MENU_ITEM_HEIGHT * MENU_ITEM_COUNT;
+    int columns = MenuColumns();
+    int rows    = MenuRows();
+    int width   = MENU_WIDTH       * columns;
+    int height  = MENU_ITEM_HEIGHT * rows;
 
     // Silence raylib's stdout logs so they don't pollute the pipe.
     SetTraceLogLevel(LOG_NONE);
@@ -137,8 +151,12 @@ int RunMenu(int argc, char **argv)
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
             Vector2 m = GetMousePosition();
-            int     i = (int)(m.y / MENU_ITEM_HEIGHT);
-            if (i >= 0 && i < MENU_ITEM_COUNT && m.x >= 0 && m.x <= width)
+            int col = (int)(m.x / MENU_WIDTH);
+            int row = (int)(m.y / MENU_ITEM_HEIGHT);
+            int i   = col * MENU_MAX_ROWS + row;
+            if (col >= 0 && col < columns &&
+                row >= 0 && row < MENU_MAX_ROWS &&
+                i   >= 0 && i   < MENU_ITEM_COUNT)
                 chosen = MENU_ITEMS[i].id;
         }
 
@@ -146,15 +164,16 @@ int RunMenu(int argc, char **argv)
         if (frame > MENU_FOCUS_GRACE_FRAMES && !IsWindowFocused())
             break;
 
-        // -- Render --
+        // -- Render: walk items in declaration order, place into (col,row) cells --
         BeginDrawing();
             ClearBackground(MENU_BG_COLOR);
             for (int i = 0; i < MENU_ITEM_COUNT; i++)
             {
-                int y = i * MENU_ITEM_HEIGHT;
-                DrawRectangle(0, y + MENU_PADDING, MENU_ICON_SIZE, MENU_ICON_SIZE, MENU_ITEMS[i].color);
+                int x = MenuItemCol(i) * MENU_WIDTH;
+                int y = MenuItemRow(i) * MENU_ITEM_HEIGHT;
+                DrawRectangle(x, y + MENU_PADDING, MENU_ICON_SIZE, MENU_ICON_SIZE, MENU_ITEMS[i].color);
                 DrawText(MENU_ITEMS[i].action,
-                         MENU_ICON_SIZE + MENU_PADDING,
+                         x + MENU_ICON_SIZE + MENU_PADDING,
                          y + MENU_PADDING,
                          MENU_ICON_SIZE,
                          RAYWHITE);

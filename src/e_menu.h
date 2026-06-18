@@ -29,16 +29,17 @@ typedef struct
 
 // Menu visual constants, shared so parent (window placement) and child
 // (rendering) agree on the window size.
-#define MENU_WIDTH       120
-#define MENU_ITEM_HEIGHT 30
+#define MENU_WIDTH       120   // pixel width of a single column
+#define MENU_ITEM_HEIGHT 30    // pixel height of a single row
 #define MENU_ICON_SIZE   16
 #define MENU_PADDING     8
+#define MENU_MAX_ROWS    5     // when more items than this, start a new column
 
 // Parent-side menu state: tracks whether a child window is currently open.
 typedef struct Menu
 {
-    bool        isOpen;
-    MenuProcess proc;
+    bool      isOpen;
+    ChildPipe proc;
 } Menu;
 
 // Shared menu definition consumed by both processes.

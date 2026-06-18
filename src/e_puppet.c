@@ -96,17 +96,11 @@ void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vect
 
     // -- Physics wiring: body holds pointers into pup's own arrays --
     pup->body = (Body){
-        .particles       = pup->limbs,
-        .particleCount   = LIMB_COUNT,
-        .bones           = pup->bones,
-        .boneCount       = BONE_COUNT,
-        .cfg = (PhysicsConfig){
-            .gravity   = DEFAULT_GRAVITY,
-            .friction  = DEFAULT_FRICTION,
-            .bounce    = DEFAULT_BOUNCE,
-            .minBounce = DEFAULT_MIN_BOUNCE,
-            .stiffness = DEFAULT_STIFFNESS,
-        },
+        .particles     = pup->limbs,
+        .particleCount = LIMB_COUNT,
+        .bones         = pup->bones,
+        .boneCount     = BONE_COUNT,
+        .cfg           = DEFAULT_PHYSICS_CONFIG,
     };
     pup->body.bounds = ComputeBoundBox(&pup->body);
 }

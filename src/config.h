@@ -21,6 +21,15 @@ typedef struct
     float stiffness; // softness of soft bones (0 = floppy, 1 = rigid)
 } PhysicsConfig;
 
+// Single source of truth for the default physics tuning.
+#define DEFAULT_PHYSICS_CONFIG ((PhysicsConfig){ \
+    .gravity   = DEFAULT_GRAVITY,                \
+    .friction  = DEFAULT_FRICTION,               \
+    .bounce    = DEFAULT_BOUNCE,                 \
+    .minBounce = DEFAULT_MIN_BOUNCE,             \
+    .stiffness = DEFAULT_STIFFNESS,              \
+})
+
 // =============================================================================
 //  GEOMETRY
 // =============================================================================
