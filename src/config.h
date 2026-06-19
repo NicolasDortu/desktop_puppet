@@ -40,6 +40,9 @@ typedef struct
     float x, y, w, h;
 } BoundBox;
 
+// Window padding around bounding box making sure the whole entity is always visible.
+#define WINDOW_MARGIN 2
+
 // =============================================================================
 //  ENGINE
 // =============================================================================

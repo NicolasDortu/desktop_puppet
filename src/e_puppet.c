@@ -75,13 +75,11 @@ static void InitPuppetBones(Puppet *pup)
 // =============================================================================
 
 // Build a fully-initialized puppet (limbs, bones, default physics) at `startPos`.
-void CreatePuppet(Puppet *pup, const char *name, Color color, float radius, Vector2 startPos)
+void CreatePuppet(Puppet *pup, Color color, float radius, Vector2 startPos)
 {
     *pup = (Puppet){0};
 
     // -- Identity --
-    strncpy(pup->name, name, sizeof(pup->name) - 1);
-    pup->name[sizeof(pup->name) - 1] = '\0';
     pup->color  = color;
     pup->radius = radius;
 

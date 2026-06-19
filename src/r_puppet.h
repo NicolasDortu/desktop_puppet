@@ -1,12 +1,10 @@
-#ifndef ROLES_H
-#define ROLES_H
+#ifndef R_PUPPET_H
+#define R_PUPPET_H
 
 // =============================================================================
-//  ROLES FUNCTIONS
+//  PUPPET ROLE
 // =============================================================================
 
 int RunPuppet(int argc, char **argv);
-int RunItem  (int argc, char **argv);
-int RunMenu  (int argc, char **argv);
 
 #endif

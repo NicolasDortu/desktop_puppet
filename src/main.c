@@ -1,4 +1,6 @@
-#include "roles.h"
+#include "r_puppet.h"
+#include "r_item.h"
+#include "r_menu.h"
 
 #include <string.h>
 

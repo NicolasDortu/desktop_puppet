@@ -1,7 +1,8 @@
-#ifndef SYNC_H
-#define SYNC_H
+#ifndef R_SYNC_H
+#define R_SYNC_H
 
 #include "e_puppet.h"
+#include "ipc.h"
 
 // =============================================================================
 //  SHARED MEMORY LAYOUT
@@ -33,5 +34,20 @@ typedef struct SharedState
     ItemSlot items[MAX_ITEMS];  // each item child -> puppet (one slot per child)
     MenuSlot menu;              // menu child -> puppet
 } SharedState;
+
+// =============================================================================
+//  REGION SETUP
+// =============================================================================
+
+// Parent: create the shared region (named after our own PID) and map it.
+// Returns the mapped view in `*shared` and our PID in `*selfPid` (to pass to
+// children). Returns false on failure.
+bool SyncHostCreate(ShmRegion *shm, SharedState **shared, unsigned long *selfPid);
+
+// Child: open the parent's region (named after `parentPid`) and grab a handle
+// used to detect when the parent dies. Returns false if the region can't be
+// mapped.
+bool SyncChildAttach(unsigned long parentPid, ShmRegion *shm,
+                     SharedState **shared, void **parentH);
 
 #endif

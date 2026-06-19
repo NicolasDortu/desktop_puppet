@@ -7,7 +7,6 @@
 // =============================================================================
 
 // Initialize a desktop-overlay window: transparent, undecorated, always on top.
-// Used by every role so all three windows share the same look and title.
 void InitOverlayWindow(int width, int height)
 {
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
@@ -22,9 +21,9 @@ ScreenWidthHeight GetScreenSize(void)
         .screenHeight = GetMonitorHeight(GetCurrentMonitor())};
 }
 
-// Update the window size and position to the BoundBox
+// Update the window size and position to the BoundBox + Margin.
 void UpdateWindow(BoundBox b)
 {
-    SetWindowSize((int)b.w, (int)b.h);
-    SetWindowPosition((int)b.x, (int)b.y);
+    SetWindowSize    ((int)b.w + 2 * WINDOW_MARGIN, (int)b.h + 2 * WINDOW_MARGIN);
+    SetWindowPosition((int)b.x - WINDOW_MARGIN    , (int)b.y - WINDOW_MARGIN);
 }
