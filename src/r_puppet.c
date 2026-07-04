@@ -59,6 +59,7 @@ int RunPuppet(int argc, char **argv)
 
         // Simulation
         ApplyPhysics(&pup.body, screen);
+        EnforcePuppetPose(&pup);
         UpdateItems(&items, shared, &pup);
         UpdateWindow(pup.body.bounds);
 

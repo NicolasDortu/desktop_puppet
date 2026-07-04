@@ -10,7 +10,7 @@
 #define DEFAULT_FRICTION    0.99f  // velocity retained per frame (1.0 = none)
 #define DEFAULT_BOUNCE     -0.70f  // velocity multiplier on wall/floor impact
 #define DEFAULT_MIN_BOUNCE  0.03f  // speed below which residual motion is killed
-#define DEFAULT_STIFFNESS   0.05f  // fraction of correction applied by soft bones
+#define DEFAULT_STIFFNESS   0.25f  // fraction of correction applied by soft bones
 
 typedef struct
 {

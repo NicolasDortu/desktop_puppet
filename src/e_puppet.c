@@ -22,19 +22,21 @@ static void InitPuppetLimbs(Puppet *pup, Vector2 startPos)
     float headR = R * 0.40f;
     float limbR = R * 0.25f;
 
-    // --- Feet placement helpers ---
-    float feetOffset = 0.5f;              // horizontal spread of feet around body center
-    float feetGround = R - bodyR - limbR; // vertical drop so feet sit on the "ground"
+    // Limbs sit partly embedded in the body (Interactive Buddy look): hands
+    // ride the rim at the upper sides (15 degrees above mid-height), feet ride
+    // the rim at the bottom, and the head overlaps the top by half its radius.
+    float feetSpread = 0.55f;          // horizontal spread of the feet along the rim
+    Vector2 armRest  = { bodyR * 0.966f, -bodyR * 0.259f };
 
     Vector2 c = startPos;
 
     // --- Per-limb anchor positions (body is at the center) ---
     Vector2 bodyPos  = c;
-    Vector2 headPos  = { c.x,                       c.y - (bodyR + headR)       };
-    Vector2 armLPos  = { c.x - (bodyR + limbR),     c.y                         };
-    Vector2 armRPos  = { c.x + (bodyR + limbR),     c.y                         };
-    Vector2 footLPos = { c.x - bodyR * feetOffset,  c.y + bodyR + feetGround    };
-    Vector2 footRPos = { c.x + bodyR * feetOffset,  c.y + bodyR + feetGround    };
+    Vector2 headPos  = { c.x,                      c.y - (bodyR + headR * 0.5f) };
+    Vector2 armLPos  = { c.x - armRest.x,          c.y + armRest.y              };
+    Vector2 armRPos  = { c.x + armRest.x,          c.y + armRest.y              };
+    Vector2 footLPos = { c.x - bodyR * feetSpread, c.y + bodyR                  };
+    Vector2 footRPos = { c.x + bodyR * feetSpread, c.y + bodyR                  };
 
     // --- Build the limbs (oldPos = pos => zero initial velocity) ---
     pup->limbs[LIMB_BODY]   = (PuppetLimb){ .pos = bodyPos,  .oldPos = bodyPos,  .radius = bodyR };
@@ -56,20 +58,27 @@ static void InitPuppetLimbs(Puppet *pup, Vector2 startPos)
 // Wire the limbs together with distance constraints.
 // Rest lengths are captured from the freshly-initialized pose,
 // so the puppet always tries to return to that shape.
+//
+// HARD bones fix the structure: every limb stays at its distance from the
+// body (so the embedded look holds) and the feet cannot cross. SOFT bones are
+// the springs: the diagonals to the head let arms and feet swing with lag and
+// bounce back (cfg.stiffness sets how snappy). Distance springs are drift-safe
+// — they only push along the line between two particles and have a true rest
+// point — unlike a positional pull toward a rotating target, which pumps
+// energy and made the puppet walk on its own.
 static void InitPuppetBones(Puppet *pup)
 {
-    // -- Hard bones: rigid skeleton --
-    pup->bones[BODY_HEAD]   = (PuppetBone){ LIMB_BODY, LIMB_HEAD,   ParticlesDistance(&pup->limbs[LIMB_BODY], &pup->limbs[LIMB_HEAD]),   false };
-    pup->bones[BODY_ARM_L]  = (PuppetBone){ LIMB_BODY, LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_BODY], &pup->limbs[LIMB_ARM_L]),  false };
-    pup->bones[BODY_ARM_R]  = (PuppetBone){ LIMB_BODY, LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_BODY], &pup->limbs[LIMB_ARM_R]),  false };
-    pup->bones[BODY_FOOT_L] = (PuppetBone){ LIMB_BODY, LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_BODY], &pup->limbs[LIMB_FOOT_L]), false };
-    pup->bones[BODY_FOOT_R] = (PuppetBone){ LIMB_BODY, LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_BODY], &pup->limbs[LIMB_FOOT_R]), false };
-    pup->bones[HEAD_FOOT_L] = (PuppetBone){ LIMB_HEAD, LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_HEAD], &pup->limbs[LIMB_FOOT_L]), false };
-    pup->bones[HEAD_FOOT_R] = (PuppetBone){ LIMB_HEAD, LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_HEAD], &pup->limbs[LIMB_FOOT_R]), false };
+    pup->bones[BODY_HEAD]   = (PuppetBone){ LIMB_BODY,   LIMB_HEAD,   ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_HEAD]),   false };
+    pup->bones[BODY_ARM_L]  = (PuppetBone){ LIMB_BODY,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_L]),  false };
+    pup->bones[BODY_ARM_R]  = (PuppetBone){ LIMB_BODY,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_R]),  false };
+    pup->bones[BODY_FOOT_L] = (PuppetBone){ LIMB_BODY,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_L]), false };
+    pup->bones[BODY_FOOT_R] = (PuppetBone){ LIMB_BODY,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_R]), false };
+    pup->bones[FOOT_FOOT]   = (PuppetBone){ LIMB_FOOT_L, LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_FOOT_L], &pup->limbs[LIMB_FOOT_R]), false };
 
-    // -- Soft bones: gently restore to their rest angle --
-    pup->bones[HEAD_ARM_L]  = (PuppetBone){ LIMB_HEAD, LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_HEAD], &pup->limbs[LIMB_ARM_L]),  true  };
-    pup->bones[HEAD_ARM_R]  = (PuppetBone){ LIMB_HEAD, LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_HEAD], &pup->limbs[LIMB_ARM_R]),  true  };
+    pup->bones[HEAD_FOOT_L] = (PuppetBone){ LIMB_HEAD,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_L]), true  };
+    pup->bones[HEAD_FOOT_R] = (PuppetBone){ LIMB_HEAD,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_R]), true  };
+    pup->bones[HEAD_ARM_L]  = (PuppetBone){ LIMB_HEAD,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_L]),  true  };
+    pup->bones[HEAD_ARM_R]  = (PuppetBone){ LIMB_HEAD,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_R]),  true  };
 }
 
 // =============================================================================
@@ -96,6 +105,58 @@ void CreatePuppet(Puppet *pup, float radius, Vector2 startPos)
         .boneCount     = BONE_COUNT,
         .cfg           = DEFAULT_PHYSICS_CONFIG,
     };
+    pup->body.bounds = ComputeBoundBox(&pup->body);
+}
+
+// =============================================================================
+//  POSE ENFORCEMENT
+// =============================================================================
+
+// Chirality guard, run once per frame after physics. Distance constraints
+// cannot tell left from right (a mirrored pose satisfies every bone length),
+// so a hard spin can settle an arm on the wrong side of the body or below the
+// feet. Reflect any limb found on the wrong side of the body->head axis back
+// onto its own side; paired limbs are identical circles, so the snap is
+// invisible on screen.
+void EnforcePuppetPose(Puppet *pup)
+{
+    Vector2 body = pup->limbs[LIMB_BODY].pos;
+    Vector2 head = pup->limbs[LIMB_HEAD].pos;
+    float   dx   = head.x - body.x;
+    float   dy   = head.y - body.y;
+    float   len  = sqrtf(dx * dx + dy * dy);
+    if (len < 0.001f)
+        return;
+
+    // `n` is the puppet's local left-right axis; rest-pose LEFT limbs have a
+    // negative coordinate along it, RIGHT limbs a positive one.
+    Vector2 n = { -dy / len, dx / len };
+
+    static const struct { LimbId limb; float side; } SIDES[] = {
+        { LIMB_ARM_L,  -1.0f }, { LIMB_ARM_R,  1.0f },
+        { LIMB_FOOT_L, -1.0f }, { LIMB_FOOT_R, 1.0f },
+    };
+
+    for (int i = 0; i < 4; i++)
+    {
+        Particle *p = &pup->limbs[SIDES[i].limb];
+        if (p->isDragged)
+            continue; // respect the user's grab; corrected on release
+
+        float d = (p->pos.x - body.x) * n.x + (p->pos.y - body.y) * n.y;
+        if (d * SIDES[i].side >= -1.0f)
+            continue; // on its own side (1px of axis tolerance against jitter)
+
+        // Mirror pos AND oldPos across the axis so the implicit Verlet
+        // velocity flips along with the position.
+        float dOld  = (p->oldPos.x - body.x) * n.x + (p->oldPos.y - body.y) * n.y;
+        p->pos.x    -= 2.0f * d    * n.x;
+        p->pos.y    -= 2.0f * d    * n.y;
+        p->oldPos.x -= 2.0f * dOld * n.x;
+        p->oldPos.y -= 2.0f * dOld * n.y;
+    }
+
+    // Reflections move particles: refresh the cached bounds.
     pup->body.bounds = ComputeBoundBox(&pup->body);
 }
 

@@ -153,18 +153,6 @@ void ResolveCapsuleCircleCollision(Particle *a, Particle *b, Particle *c)
     }
 }
 
-// Push every pair of overlapping particles in `body` apart.
-static void ResolveBodyCollisions(Body *body)
-{
-    for (int i = 0; i < body->particleCount; i++)
-    {
-        for (int j = i + 1; j < body->particleCount; j++)
-        {
-            ResolveCirclesCollisions(&body->particles[i], &body->particles[j]);
-        }
-    }
-}
-
 // Pull each pair of bone-connected particles back to the bone's rest length.
 // Hard bones snap exactly; soft bones apply only `stiffness` of the correction.
 static void UpdateBones(Body *body)
@@ -242,8 +230,12 @@ BoundBox ComputeBoundBox(const Body *body)
 
 // One physics tick:
 //   1. Integrate every (non-dragged) particle with Verlet.
-//   2. Iterate constraints (bones + particle-particle collisions) for stiffness.
+//   2. Iterate the bone constraints for stiffness.
 //   3. Recompute the bounding box used by the renderer / window sizing.
+//
+// A body's own particles do NOT collide with each other: puppet limbs sit
+// partly embedded in the body by design, and the bone network (with its
+// diagonals) is what holds the shape.
 void ApplyPhysics(Body *body, BoundBox screen)
 {
     for (int i = 0; i < body->particleCount; i++)
@@ -253,10 +245,7 @@ void ApplyPhysics(Body *body, BoundBox screen)
     }
 
     for (int iter = 0; iter < CONSTRAINT_ITERATIONS; iter++)
-    {
         UpdateBones(body);
-        ResolveBodyCollisions(body);
-    }
 
     body->bounds = ComputeBoundBox(body);
 }

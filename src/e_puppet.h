@@ -30,19 +30,23 @@ typedef enum LimbId
 
 typedef Bone PuppetBone;
 
-// Index of each bone within Puppet.bones[].
+// Index of each bone within Puppet.bones[]. Hard bones fix each limb's
+// distance to the body; the soft head diagonals are the springs that let
+// limbs swing and snap back. EnforcePuppetPose picks the correct mirror
+// branch for each limb (distance constraints cannot tell left from right).
 typedef enum BoneId
 {
-    // -- Hard bones: rigid skeleton --
+    // -- Hard --
     BODY_HEAD,
     BODY_ARM_L,
     BODY_ARM_R,
     BODY_FOOT_L,
     BODY_FOOT_R,
-    HEAD_FOOT_L,   // diagonals prevent the puppet from folding in on itself
-    HEAD_FOOT_R,
+    FOOT_FOOT,     // keeps the feet from crossing into each other
 
-    // -- Soft bones: pull arms back to rest pose without locking them --
+    // -- Soft (springs) --
+    HEAD_FOOT_L,   // diagonals also prevent the puppet from folding in on itself
+    HEAD_FOOT_R,
     HEAD_ARM_L,
     HEAD_ARM_R,
 
@@ -69,6 +73,7 @@ typedef struct Puppet
 // Build a fully-initialized puppet at `startPos`. Writes into `*pup` so the
 // internal Body keeps valid pointers to the caller's `limbs`/`bones` arrays.
 void CreatePuppet(Puppet *pup, float radius, Vector2 startPos);
+void EnforcePuppetPose(Puppet *pup); // keep limbs on their own side (see e_puppet.c)
 void DrawPuppet (const Puppet *pup);
 
 
