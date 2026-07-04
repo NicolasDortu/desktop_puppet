@@ -46,7 +46,7 @@ typedef struct
 //  FUNCTIONS
 // =============================================================================
 
-void     ApplyPhysics             (Body *body, int screenWidth, int screenHeight);
+void     ApplyPhysics             (Body *body, BoundBox screen); // screen = usable desktop area (walls)
 void     ResolveCirclesCollisions (Particle *a, Particle *b);
 void     ResolveCapsuleCircleCollision (Particle *a, Particle *b, Particle *c); // capsule a-b (radius a->radius) vs circle c
 BoundBox ComputeBoundBox          (const Body *body);

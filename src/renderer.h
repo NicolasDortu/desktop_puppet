@@ -9,20 +9,13 @@
 // DECLARATIONS
 // =============================================================================
 
-// Struct to hold screen dimensions.
-typedef struct
-{
-    int screenWidth;
-    int screenHeight;
-} ScreenWidthHeight;
-
 // =============================================================================
 //  FUNCTIONS
 // =============================================================================
 
-void              InitOverlayWindow(int width, int height);
-ScreenWidthHeight GetScreenSize(void);
-void              UpdateWindow(BoundBox b);
-Texture2D         LoadAssetTexture(const char *file);
+void      InitOverlayWindow(int width, int height);
+BoundBox  GetScreenArea(void); // usable desktop area (screen minus taskbar)
+void      UpdateWindow(BoundBox b);
+Texture2D LoadAssetTexture(const char *file);
 
 #endif

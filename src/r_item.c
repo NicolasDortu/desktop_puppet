@@ -170,7 +170,7 @@ int RunItem(int argc, char **argv)
         return 1;
     }
 
-    ScreenWidthHeight screen = GetScreenSize();
+    BoundBox screen = GetScreenArea();
 
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
@@ -180,7 +180,7 @@ int RunItem(int argc, char **argv)
 
         // Simulation: collide against a local copy of each limb (we must not
         // write into shared->limbs, which the puppet owns).
-        ApplyPhysics(&item.body, screen.screenWidth, screen.screenHeight);
+        ApplyPhysics(&item.body, screen);
         for (int i = 0; i < shared->limbCount; i++)
         {
             Particle limb = shared->limbs[i];

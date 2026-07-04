@@ -14,7 +14,7 @@
 // In Verlet, velocity is implicit:  v = pos - oldPos
 // We derive v, apply friction & gravity, move the particle, then handle wall collisions
 // by reflecting `oldPos` so the next frame's implicit velocity points away from the wall.
-static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, int screenWidth, int screenHeight)
+static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, BoundBox screen)
 {
     // --- Derive velocity from last frame's displacement, apply friction ---
     float vx = (particle->pos.x - particle->oldPos.x) * cfg->friction;
@@ -33,24 +33,25 @@ static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, int 
     particle->pos.y += vy + cfg->gravity;
 
     // --- Wall collisions: clamp position, reflect implicit velocity ---
-    if (particle->pos.y + particle->radius > screenHeight)  // floor
+    // Walls are the edges of the usable desktop area (taskbar excluded).
+    if (particle->pos.y + particle->radius > screen.y + screen.h)  // floor
     {
-        particle->pos.y    = screenHeight - particle->radius;
+        particle->pos.y    = screen.y + screen.h - particle->radius;
         particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
     }
-    if (particle->pos.y - particle->radius < 0)             // ceiling
+    if (particle->pos.y - particle->radius < screen.y)             // ceiling
     {
-        particle->pos.y    = particle->radius;
+        particle->pos.y    = screen.y + particle->radius;
         particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
     }
-    if (particle->pos.x + particle->radius > screenWidth)   // right wall
+    if (particle->pos.x + particle->radius > screen.x + screen.w)  // right wall
     {
-        particle->pos.x    = screenWidth - particle->radius;
+        particle->pos.x    = screen.x + screen.w - particle->radius;
         particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
     }
-    if (particle->pos.x - particle->radius < 0)             // left wall
+    if (particle->pos.x - particle->radius < screen.x)             // left wall
     {
-        particle->pos.x    = particle->radius;
+        particle->pos.x    = screen.x + particle->radius;
         particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
     }
 }
@@ -243,12 +244,12 @@ BoundBox ComputeBoundBox(const Body *body)
 //   1. Integrate every (non-dragged) particle with Verlet.
 //   2. Iterate constraints (bones + particle-particle collisions) for stiffness.
 //   3. Recompute the bounding box used by the renderer / window sizing.
-void ApplyPhysics(Body *body, int screenWidth, int screenHeight)
+void ApplyPhysics(Body *body, BoundBox screen)
 {
     for (int i = 0; i < body->particleCount; i++)
     {
         if (!body->particles[i].isDragged)
-            IntegrateParticle(&body->particles[i], &body->cfg, screenWidth, screenHeight);
+            IntegrateParticle(&body->particles[i], &body->cfg, screen);
     }
 
     for (int iter = 0; iter < CONSTRAINT_ITERATIONS; iter++)

@@ -13,12 +13,27 @@ void InitOverlayWindow(int width, int height)
     InitWindow(width, height, "Desktop Puppet");
 }
 
-// Get the current screen size to position the puppet window and menu correctly.
-ScreenWidthHeight GetScreenSize(void)
+// Work-area query from GLFW, which raylib links in statically. GLFW owns the
+// per-OS logic (Win32 SystemParametersInfo, X11 _NET_WORKAREA), so no platform
+// code is needed here. If raylib is ever built on a non-GLFW backend, these
+// symbols disappear and the build fails loudly at link time.
+typedef struct GLFWmonitor GLFWmonitor;
+extern GLFWmonitor *glfwGetPrimaryMonitor(void);
+extern void glfwGetMonitorWorkarea(GLFWmonitor *monitor, int *x, int *y, int *w, int *h);
+
+// Usable desktop area the puppet lives in: the primary screen minus the
+// taskbar (whichever edge it is docked on). Physics treats its edges as walls.
+BoundBox GetScreenArea(void)
 {
-    return (ScreenWidthHeight){
-        .screenWidth = GetMonitorWidth(GetCurrentMonitor()),
-        .screenHeight = GetMonitorHeight(GetCurrentMonitor())};
+    int x = 0, y = 0, w = 0, h = 0;
+    glfwGetMonitorWorkarea(glfwGetPrimaryMonitor(), &x, &y, &w, &h);
+    if (w > 0 && h > 0)
+        return (BoundBox){ .x = (float)x, .y = (float)y, .w = (float)w, .h = (float)h };
+
+    // GLFW couldn't tell (e.g. Wayland): fall back to the full monitor.
+    return (BoundBox){ .x = 0, .y = 0,
+                       .w = (float)GetMonitorWidth(GetCurrentMonitor()),
+                       .h = (float)GetMonitorHeight(GetCurrentMonitor()) };
 }
 
 // Update the window size and position to the BoundBox + Margin.

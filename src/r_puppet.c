@@ -29,7 +29,7 @@ int RunPuppet(int argc, char **argv)
     float radius = 100.0f;
     InitOverlayWindow((int)(2 * radius), (int)(2 * radius));
 
-    ScreenWidthHeight win = GetScreenSize();
+    BoundBox screen = GetScreenArea();
 
     // Shared memory: this process owns the region; children map it by our PID.
     ShmRegion     shm;
@@ -41,7 +41,7 @@ int RunPuppet(int argc, char **argv)
         return 1;
     }
 
-    Vector2      startPos = {win.screenWidth / 2.0f, win.screenHeight / 2.0f};
+    Vector2      startPos = {screen.x + screen.w / 2.0f, screen.y + screen.h / 2.0f};
     Puppet       pup;
     CreatePuppet(&pup, radius, startPos);
     Menu         menu  = {0};
@@ -58,7 +58,7 @@ int RunPuppet(int argc, char **argv)
         MenuActions(&pup, &menu, &items, shared, selfPid);
 
         // Simulation
-        ApplyPhysics(&pup.body, win.screenWidth, win.screenHeight);
+        ApplyPhysics(&pup.body, screen);
         UpdateItems(&items, shared, &pup);
         UpdateWindow(pup.body.bounds);
 
