@@ -19,6 +19,7 @@
 typedef struct
 {
     Particle particles[ITEM_MAX_PARTICLES]; // written by the item child every frame
+    ItemType type;                          // kind of item in this slot (picks the collision shape)
     bool     active;                        // true once the child has published at least once
 } ItemSlot;
 

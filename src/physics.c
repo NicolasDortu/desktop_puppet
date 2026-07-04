@@ -153,6 +153,97 @@ void ResolveCapsuleCircleCollision(Particle *a, Particle *b, Particle *c)
     }
 }
 
+static float Clamp01(float v)
+{
+    return (v < 0.0f) ? 0.0f : (v > 1.0f) ? 1.0f : v;
+}
+
+// Closest points between segments p1-q1 and p2-q2 (Ericson, RTCD 5.1.9).
+// Writes the segment parameters to *outS / *outT (0 = start, 1 = end).
+static void ClosestPointsSegments(Vector2 p1, Vector2 q1, Vector2 p2, Vector2 q2,
+                                  float *outS, float *outT)
+{
+    float d1x = q1.x - p1.x, d1y = q1.y - p1.y; // direction of segment A
+    float d2x = q2.x - p2.x, d2y = q2.y - p2.y; // direction of segment B
+    float rx  = p1.x - p2.x, ry  = p1.y - p2.y;
+    float a   = d1x * d1x + d1y * d1y;          // squared length of A
+    float e   = d2x * d2x + d2y * d2y;          // squared length of B
+    float f   = d2x * rx + d2y * ry;
+    float s, t;
+
+    if (a <= 1e-6f && e <= 1e-6f)      // both degenerate to points
+    {
+        s = t = 0.0f;
+    }
+    else if (a <= 1e-6f)               // A is a point
+    {
+        s = 0.0f;
+        t = Clamp01(f / e);
+    }
+    else
+    {
+        float c = d1x * rx + d1y * ry;
+        if (e <= 1e-6f)                // B is a point
+        {
+            t = 0.0f;
+            s = Clamp01(-c / a);
+        }
+        else                           // the general case
+        {
+            float b     = d1x * d2x + d1y * d2y;
+            float denom = a * e - b * b;         // >= 0; 0 when parallel
+            s = (denom > 1e-6f) ? Clamp01((b * f - c * e) / denom) : 0.0f;
+            t = (b * s + f) / e;
+            if      (t < 0.0f) { t = 0.0f; s = Clamp01(-c / a); }
+            else if (t > 1.0f) { t = 1.0f; s = Clamp01((b - c) / a); }
+        }
+    }
+
+    *outS = s;
+    *outT = t;
+}
+
+// Push two capsules apart: A = segment a1-a2 with radius a1->radius, B =
+// segment b1-b2 with radius b1->radius. Contact is the closest point pair
+// between the segments (which also catches two shafts crossing mid-segment).
+// Mirrors the dragged/share semantics of the other resolvers; each capsule's
+// correction is distributed to its endpoints by proximity to the contact.
+void ResolveCapsulesCollision(Particle *a1, Particle *a2, Particle *b1, Particle *b2)
+{
+    float s, t;
+    ClosestPointsSegments(a1->pos, a2->pos, b1->pos, b2->pos, &s, &t);
+
+    Vector2 pa = { a1->pos.x + (a2->pos.x - a1->pos.x) * s,
+                   a1->pos.y + (a2->pos.y - a1->pos.y) * s };
+    Vector2 pb = { b1->pos.x + (b2->pos.x - b1->pos.x) * t,
+                   b1->pos.y + (b2->pos.y - b1->pos.y) * t };
+
+    float dx      = pb.x - pa.x;
+    float dy      = pb.y - pa.y;
+    float dist2   = dx * dx + dy * dy;
+    float minDist = a1->radius + b1->radius;
+
+    if (dist2 >= minDist * minDist || dist2 < 1e-6f)
+        return;
+
+    float dist    = sqrtf(dist2);
+    float nx      = dx / dist;
+    float ny      = dy / dist;
+    float overlap = minDist - dist;
+
+    bool  aDragged = a1->isDragged || a2->isDragged;
+    bool  bDragged = b1->isDragged || b2->isDragged;
+    float aShare   = (aDragged && !bDragged) ? 0.0f
+                   : (bDragged && !aDragged) ? 1.0f : 0.5f;
+    float bShare   = 1.0f - aShare;
+
+    // A backs away against the normal, B along it, endpoint-weighted.
+    if (!a1->isDragged) { a1->pos.x -= nx * overlap * aShare * (1.0f - s); a1->pos.y -= ny * overlap * aShare * (1.0f - s); }
+    if (!a2->isDragged) { a2->pos.x -= nx * overlap * aShare * s;          a2->pos.y -= ny * overlap * aShare * s;          }
+    if (!b1->isDragged) { b1->pos.x += nx * overlap * bShare * (1.0f - t); b1->pos.y += ny * overlap * bShare * (1.0f - t); }
+    if (!b2->isDragged) { b2->pos.x += nx * overlap * bShare * t;          b2->pos.y += ny * overlap * bShare * t;          }
+}
+
 // Pull each pair of bone-connected particles back to the bone's rest length.
 // Hard bones snap exactly; soft bones apply only `stiffness` of the correction.
 static void UpdateBones(Body *body)

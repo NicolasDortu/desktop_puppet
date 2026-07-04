@@ -47,6 +47,11 @@ bool SpawnItem(ItemRegistry *reg, SharedState *shared, unsigned long parentPid,
         // new child can publish (we read `active` to know it's valid).
         shared->items[slot] = (ItemSlot){0};
 
+        // Stagger spawns by slot: items spawned back-to-back would otherwise
+        // start at identical coordinates, and the collision resolvers bail on
+        // coincident centers, leaving them perfectly stacked forever.
+        posX += slot * 15;
+
         // Command line: main.exe item <type> <x> <y> <parentPid> <slot>
         char args[96];
         snprintf(args, sizeof args, "%d %d %d %lu %d",
@@ -72,6 +77,26 @@ static void CollideItemWithCircle(Particle *itemParticles, ItemType type, Partic
         ResolveCapsuleCircleCollision(&itemParticles[0], &itemParticles[1], circle);
     else
         ResolveCirclesCollisions(&itemParticles[0], circle);
+}
+
+// Resolve MY particles against a peer item's snapshot, dispatching on both
+// collision shapes. The caller passes a throwaway copy of the peer: only my
+// side of each correction is kept, the peer applies its own share in its own
+// process (same split as the puppet <-> item collision).
+static void CollideItemWithItem(Particle *mine, ItemType myType,
+                                Particle *theirs, ItemType theirType)
+{
+    bool meCapsule  = ItemShapeOf(myType)    == ITEM_SHAPE_CAPSULE;
+    bool othCapsule = ItemShapeOf(theirType) == ITEM_SHAPE_CAPSULE;
+
+    if (meCapsule && othCapsule)
+        ResolveCapsulesCollision(&mine[0], &mine[1], &theirs[0], &theirs[1]);
+    else if (meCapsule)
+        ResolveCapsuleCircleCollision(&mine[0], &mine[1], &theirs[0]);
+    else if (othCapsule)
+        ResolveCapsuleCircleCollision(&theirs[0], &theirs[1], &mine[0]);
+    else
+        ResolveCirclesCollisions(&mine[0], &theirs[0]);
 }
 
 // Push every limb away from the item if they overlap. We collide LOCAL copies of
@@ -187,12 +212,23 @@ int RunItem(int argc, char **argv)
             CollideItemWithCircle(item.particles, type, &limb);
         }
 
+        // Collide against every other live item's published snapshot (local
+        // copy; each peer applies its own share from its own process).
+        for (int s = 0; s < MAX_ITEMS; s++)
+        {
+            if (s == slot || !shared->items[s].active)
+                continue;
+            ItemSlot peer = shared->items[s];
+            CollideItemWithItem(item.particles, type, peer.particles, peer.type);
+        }
+
         // Collisions moved particles after ApplyPhysics computed the bounds; refresh.
         item.body.bounds = ComputeBoundBox(&item.body);
 
-        // Publish our particles for the puppet to collide against.
+        // Publish our particles for the puppet and the other items to collide against.
         for (int i = 0; i < item.body.particleCount; i++)
             shared->items[slot].particles[i] = item.particles[i];
+        shared->items[slot].type   = type;
         shared->items[slot].active = true;
 
         // Size/position the window to the item's bounds, then draw.
