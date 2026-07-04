@@ -3,6 +3,8 @@
 
 #include "config.h"
 
+#include "raylib.h"
+
 // =============================================================================
 // DECLARATIONS
 // =============================================================================
@@ -21,5 +23,6 @@ typedef struct
 void              InitOverlayWindow(int width, int height);
 ScreenWidthHeight GetScreenSize(void);
 void              UpdateWindow(BoundBox b);
+Texture2D         LoadAssetTexture(const char *file);
 
 #endif

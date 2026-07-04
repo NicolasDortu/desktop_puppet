@@ -1,6 +1,7 @@
 #include "e_puppet.h"
 #include "config.h"
 #include "physics.h"
+#include "renderer.h"
 
 #include <string.h>
 
@@ -104,6 +105,17 @@ void CreatePuppet(Puppet *pup, Color color, float radius, Vector2 startPos)
 
 void DrawPuppet(const Puppet *pup)
 {
+    // Skins, loaded lazily on first draw (LoadTexture needs the window open).
+    static Texture2D texBody, texHead, texHand;
+    static bool texLoaded = false;
+    if (!texLoaded)
+    {
+        texBody   = LoadAssetTexture("b_body.png");
+        texHead   = LoadAssetTexture("b_head.png");
+        texHand   = LoadAssetTexture("b_hand.png"); // hands and feet share a skin
+        texLoaded = true;
+    }
+
     ClearBackground(BLANK);
 
     BoundBox b = pup->body.bounds;
@@ -114,6 +126,16 @@ void DrawPuppet(const Puppet *pup)
     {
         PuppetLimb limb = pup->limbs[i];
         Vector2 local = {limb.pos.x - winOriginX, limb.pos.y - winOriginY};
-        DrawCircleV(local, limb.radius, pup->limbColors[i]);
+        Texture2D tex = (i == LIMB_BODY) ? texBody
+                      : (i == LIMB_HEAD) ? texHead
+                                         : texHand;
+        if (tex.id)
+        {
+            Rectangle src = { 0, 0, (float)tex.width, (float)tex.height };
+            Rectangle dst = { local.x, local.y, 2 * limb.radius, 2 * limb.radius };
+            DrawTexturePro(tex, src, dst, (Vector2){ limb.radius, limb.radius }, 0.0f, WHITE);
+        }
+        else
+            DrawCircleV(local, limb.radius, pup->limbColors[i]); // skin missing on disk
     }
 }

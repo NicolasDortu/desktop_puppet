@@ -1,7 +1,9 @@
 #include "e_item.h"
 #include "config.h"
 #include "physics.h"
+#include "renderer.h"
 
+#include <math.h>
 #include <stddef.h>
 
 #include "raylib.h"
@@ -102,9 +104,31 @@ void DrawItem(const Item *item)
 
     if (spec.shape == ITEM_SHAPE_CAPSULE)
     {
+        // Bat skin, loaded lazily on first draw (LoadTexture needs the window open).
+        static Texture2D texBat;
+        static bool texLoaded = false;
+        if (!texLoaded)
+        {
+            texBat    = LoadAssetTexture("i_bat.png");
+            texLoaded = true;
+        }
+
         Vector2 a = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
         Vector2 c = { item->particles[1].pos.x - ox, item->particles[1].pos.y - oy };
-        DrawLineEx(a, c, 2 * spec.radius, spec.fillColor);
+        if (texBat.id)
+        {
+            // Sprite is horizontal, handle on the left: stretch it over the full
+            // capsule (end caps included) with the handle at particle 0, rotated
+            // around that end to follow the bar.
+            float dx = c.x - a.x, dy = c.y - a.y;
+            float len = sqrtf(dx * dx + dy * dy);
+            Rectangle src = { 0, 0, (float)texBat.width, (float)texBat.height };
+            Rectangle dst = { a.x, a.y, len + 2 * spec.radius, 2 * spec.radius };
+            DrawTexturePro(texBat, src, dst, (Vector2){ spec.radius, spec.radius },
+                           atan2f(dy, dx) * RAD2DEG, WHITE);
+        }
+        else
+            DrawLineEx(a, c, 2 * spec.radius, spec.fillColor); // skin missing on disk
     }
     else // ITEM_SHAPE_CIRCLE
     {

@@ -1,0 +1,4 @@
+// GLFW_ICON: raylib/GLFW picks this name up as the window + taskbar icon;
+// Explorer uses it as the .exe icon. Path is relative to the repo root
+// (where make runs windres).
+GLFW_ICON ICON "assets/icon.ico"
