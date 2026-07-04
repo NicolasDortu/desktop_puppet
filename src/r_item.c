@@ -17,8 +17,8 @@
 //  ITEM ROLE
 // =============================================================================
 //
-//  A standalone draggable ball in its own transparent, undecorated, topmost
-//  window. This file owns both halves of the item role:
+//  A standalone draggable item (ball, bat, ...) in its own transparent,
+//  undecorated, topmost window. This file owns both halves of the item role:
 //
 //    PARENT SIDE (runs inside the puppet process):
 //      SpawnItem / UpdateItems / CloseAllItems -- manage the item children.
@@ -62,14 +62,31 @@ bool SpawnItem(ItemRegistry *reg, SharedState *shared, unsigned long parentPid,
     return false;
 }
 
-// Push every limb away from `item` if they overlap. We collide a LOCAL copy of
-// the item (owned by the child via shared memory) so only the limb side of the
-// resolution is kept; the item's own correction is discarded and will be redone
-// authoritatively by the child next frame.
-static void CollideItemAgainstPuppet(Particle item, Puppet *pup)
+// Resolve an item against a single circle, dispatching on the item's collision
+// shape. Used on both sides of the IPC: the puppet passes a real limb as
+// `circle` (limb authoritative, item particles are throwaway copies); the child
+// passes a limb snapshot (item particles authoritative, snapshot discarded).
+static void CollideItemWithCircle(Particle *itemParticles, ItemType type, Particle *circle)
+{
+    if (ItemShapeOf(type) == ITEM_SHAPE_CAPSULE)
+        ResolveCapsuleCircleCollision(&itemParticles[0], &itemParticles[1], circle);
+    else
+        ResolveCirclesCollisions(&itemParticles[0], circle);
+}
+
+// Push every limb away from the item if they overlap. We collide LOCAL copies of
+// the item's particles (owned by the child via shared memory) so only the limb
+// side of the resolution is kept; the item's own correction is discarded and
+// redone authoritatively by the child next frame.
+static void CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppet *pup)
 {
     for (int j = 0; j < LIMB_COUNT; j++)
-        ResolveCirclesCollisions(&item, &pup->limbs[j]);
+    {
+        Particle copy[ITEM_MAX_PARTICLES];
+        for (int i = 0; i < ITEM_MAX_PARTICLES; i++)
+            copy[i] = slot->particles[i];
+        CollideItemWithCircle(copy, type, &pup->limbs[j]);
+    }
 }
 
 // Publish the puppet limbs, collide each live item against them, reap children
@@ -101,7 +118,7 @@ void UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup)
         // Collide the puppet against the item's latest published state.
         if (shared->items[slot].active)
         {
-            CollideItemAgainstPuppet(shared->items[slot].particle, pup);
+            CollideItemAgainstPuppet(&shared->items[slot], meta->type, pup);
             puppetTouched = true;
         }
     }
@@ -135,11 +152,13 @@ int RunItem(int argc, char **argv)
     unsigned long parentPid = (argc > 5) ? strtoul(argv[5], NULL, 10) : 0;
     int           slot      = (argc > 6) ? atoi(argv[6]) : 0;
 
-    int   winSize = ItemWindowSize(type);
-    float half    = winSize / 2.0f;
+    // -- Build the item body (pure data; no window needed yet) --
+    Item item;
+    CreateItem(&item, type, (Vector2){ startX, startY });
 
-    // -- Setup --
-    InitOverlayWindow(winSize, winSize);
+    // -- Setup: window sized to the item's bounding box (it follows bounds) --
+    BoundBox b0 = item.body.bounds;
+    InitOverlayWindow((int)b0.w + 2 * WINDOW_MARGIN, (int)b0.h + 2 * WINDOW_MARGIN);
     SetTargetFPS(TARGET_FPS);
 
     ShmRegion    shm;
@@ -153,36 +172,34 @@ int RunItem(int argc, char **argv)
 
     ScreenWidthHeight screen = GetScreenSize();
 
-    Particle particle;
-    Body     body;
-    CreateItem(&particle, &body, type, (Vector2){ startX, startY });
-
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
     {
         // Input
-        DragBody(&body);
+        DragBody(&item.body);
 
         // Simulation: collide against a local copy of each limb (we must not
         // write into shared->limbs, which the puppet owns).
-        ApplyPhysics(&body, screen.screenWidth, screen.screenHeight);
+        ApplyPhysics(&item.body, screen.screenWidth, screen.screenHeight);
         for (int i = 0; i < shared->limbCount; i++)
         {
             Particle limb = shared->limbs[i];
-            ResolveCirclesCollisions(&particle, &limb);
+            CollideItemWithCircle(item.particles, type, &limb);
         }
 
-        // Publish our state for the puppet to collide against.
-        shared->items[slot].particle = particle;
-        shared->items[slot].active   = true;
+        // Collisions moved particles after ApplyPhysics computed the bounds; refresh.
+        item.body.bounds = ComputeBoundBox(&item.body);
 
-        // Move the OS window so the particle stays centered in it.
-        SetWindowPosition((int)(particle.pos.x - half),
-                          (int)(particle.pos.y - half));
+        // Publish our particles for the puppet to collide against.
+        for (int i = 0; i < item.body.particleCount; i++)
+            shared->items[slot].particles[i] = item.particles[i];
+        shared->items[slot].active = true;
 
-        // Render
+        // Size/position the window to the item's bounds, then draw.
+        UpdateWindow(item.body.bounds);
+
         BeginDrawing();
-            DrawItem(type);
+            DrawItem(&item);
         EndDrawing();
     }
 

@@ -13,7 +13,8 @@ enum MenuItemId
     MENU_ITEM_RED,
     MENU_ITEM_GREEN,
     MENU_ITEM_BLUE,
-    MENU_ITEM_ITEM,
+    MENU_ITEM_BALL,
+    MENU_ITEM_BAT,
     MENU_ITEM_COUNT
 };
 

@@ -80,6 +80,78 @@ void ResolveCirclesCollisions(Particle *a, Particle *b)
     if (!b->isDragged) { b->pos.x += offsetX; b->pos.y += offsetY; }
 }
 
+// Closest point to `p` on the segment a-b. Writes the point to `*out` and
+// returns its parameter `t` along the segment (0 = a, 1 = b).
+static float ClosestPointOnSegment(Vector2 a, Vector2 b, Vector2 p, Vector2 *out)
+{
+    float abx = b.x - a.x;
+    float aby = b.y - a.y;
+    float len2 = abx * abx + aby * aby;
+
+    float t = 0.0f;
+    if (len2 > 1e-6f)
+    {
+        t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2;
+        if (t < 0.0f) t = 0.0f;
+        if (t > 1.0f) t = 1.0f;
+    }
+
+    out->x = a.x + abx * t;
+    out->y = a.y + aby * t;
+    return t;
+}
+
+// Push a circle `c` out of the capsule formed by segment a-b with radius
+// a->radius. The capsule's share of the correction is split between its
+// endpoints by how close the contact is to each (the nearer end moves more).
+// Mirrors ResolveCirclesCollisions' dragged/share semantics.
+void ResolveCapsuleCircleCollision(Particle *a, Particle *b, Particle *c)
+{
+    Vector2 closest;
+    float t = ClosestPointOnSegment(a->pos, b->pos, c->pos, &closest);
+
+    float dx      = c->pos.x - closest.x;
+    float dy      = c->pos.y - closest.y;
+    float dist2   = dx * dx + dy * dy;
+    float minDist = a->radius + c->radius;
+
+    if (dist2 >= minDist * minDist || dist2 < 1e-6f)
+        return;
+
+    float dist = sqrtf(dist2);
+    float nx   = dx / dist;
+    float ny   = dy / dist;
+    float overlap = minDist - dist;
+
+    // Split the overlap between the capsule and the circle (a dragged side
+    // absorbs none, the other takes it all; otherwise 50/50).
+    bool  segDragged = a->isDragged || b->isDragged;
+    float segShare   = (segDragged && !c->isDragged) ? 0.0f
+                     : (c->isDragged && !segDragged) ? 1.0f : 0.5f;
+    float cShare     = 1.0f - segShare;
+
+    // Circle moves out along the normal.
+    if (!c->isDragged)
+    {
+        c->pos.x += nx * overlap * cShare;
+        c->pos.y += ny * overlap * cShare;
+    }
+
+    // Capsule moves in, distributed to its endpoints by proximity to contact.
+    float wA = 1.0f - t;
+    float wB = t;
+    if (!a->isDragged)
+    {
+        a->pos.x -= nx * overlap * segShare * wA;
+        a->pos.y -= ny * overlap * segShare * wA;
+    }
+    if (!b->isDragged)
+    {
+        b->pos.x -= nx * overlap * segShare * wB;
+        b->pos.y -= ny * overlap * segShare * wB;
+    }
+}
+
 // Push every pair of overlapping particles in `body` apart.
 static void ResolveBodyCollisions(Body *body)
 {

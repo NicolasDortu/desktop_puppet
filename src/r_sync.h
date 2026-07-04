@@ -2,6 +2,7 @@
 #define R_SYNC_H
 
 #include "e_puppet.h"
+#include "e_item.h"
 #include "ipc.h"
 
 // =============================================================================
@@ -17,8 +18,8 @@
 
 typedef struct
 {
-    Particle particle; // written by the item child every frame
-    bool     active;   // true once the child has published at least once
+    Particle particles[ITEM_MAX_PARTICLES]; // written by the item child every frame
+    bool     active;                        // true once the child has published at least once
 } ItemSlot;
 
 typedef struct

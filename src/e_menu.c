@@ -11,7 +11,8 @@ const MenuItem MENU_ITEMS[MENU_ITEM_COUNT] = {
     {.id = MENU_ITEM_RED,   .action = "RED",   .color = RED   },
     {.id = MENU_ITEM_GREEN, .action = "GREEN", .color = GREEN },
     {.id = MENU_ITEM_BLUE,  .action = "BLUE",  .color = BLUE  },
-    {.id = MENU_ITEM_ITEM,  .action = "ITEM",  .color = GRAY  },
+    {.id = MENU_ITEM_BALL,  .action = "BALL",  .color = GRAY  },
+    {.id = MENU_ITEM_BAT,   .action = "BAT",   .color = BROWN },
 };
 
 static const Color MENU_BG_COLOR = {40, 40, 40, 230};

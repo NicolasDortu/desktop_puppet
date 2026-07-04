@@ -48,6 +48,7 @@ typedef struct
 
 void     ApplyPhysics             (Body *body, int screenWidth, int screenHeight);
 void     ResolveCirclesCollisions (Particle *a, Particle *b);
+void     ResolveCapsuleCircleCollision (Particle *a, Particle *b, Particle *c); // capsule a-b (radius a->radius) vs circle c
 BoundBox ComputeBoundBox          (const Body *body);
 float    ParticlesDistance        (const Particle *a, const Particle *b);
 

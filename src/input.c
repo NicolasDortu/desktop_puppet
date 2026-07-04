@@ -27,13 +27,17 @@ bool MouseInsideCircle(Vector2 mouseScreen, Vector2 center, float radius)
 //  BODY DRAGGING
 // =============================================================================
 
+// Extra pixels added to a particle's radius when testing for a grab, so thin
+// parts (e.g. the bat's ends) stay comfortably clickable.
+#define GRAB_PADDING 6.0f
+
 // Topmost particle under the cursor (iterate in reverse for proper z-ordering).
 int GetHoveredParticle(const Body *body, Vector2 mouseScreenPos)
 {
     for (int i = body->particleCount - 1; i >= 0; i--)
     {
         const Particle *p = &body->particles[i];
-        if (MouseInsideCircle(mouseScreenPos, p->pos, p->radius))
+        if (MouseInsideCircle(mouseScreenPos, p->pos, p->radius + GRAB_PADDING))
             return i;
     }
     return -1;
