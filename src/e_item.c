@@ -36,6 +36,7 @@ typedef struct
 static const ItemSpec ITEM_SPECS[ITEM_TYPE_COUNT] = {
     [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
     [ITEM_BAT]  = { .shape = ITEM_SHAPE_CAPSULE, .radius =  11.0f, .length = 186.0f, .fillColor = BROWN, .outlineColor = BLACK },
+    [ITEM_BOMB] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 22.0f, .length =  0.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
 };
 
 ItemShape ItemShapeOf(ItemType type)
@@ -90,13 +91,27 @@ void CreateItem(Item *item, ItemType type, Vector2 startPos)
 //  RENDERING
 // =============================================================================
 
-// Drawn relative to the bounding-box origin (the window is positioned
+// Window box for an item: body bounds plus headroom for decorations drawn
+// outside the physics shape (the bomb's fuse sticks out of the top).
+BoundBox ItemWindowBounds(const Item *item)
+{
+    BoundBox b = item->body.bounds;
+    if (item->type == ITEM_BOMB)
+    {
+        float room = ITEM_SPECS[ITEM_BOMB].radius; // fuse + spark headroom
+        b.y -= room;
+        b.h += room;
+    }
+    return b;
+}
+
+// Drawn relative to the window box origin (the window is positioned
 // WINDOW_MARGIN up-left of the box, see UpdateWindow), like DrawPuppet.
 void DrawItem(const Item *item)
 {
     ItemSpec spec = ITEM_SPECS[item->type];
 
-    BoundBox b = item->body.bounds;
+    BoundBox b = ItemWindowBounds(item);
     float ox = b.x - WINDOW_MARGIN;
     float oy = b.y - WINDOW_MARGIN;
 
@@ -130,26 +145,52 @@ void DrawItem(const Item *item)
         else
             DrawLineEx(a, c, 2 * spec.radius, spec.fillColor); // skin missing on disk
     }
-    else // ITEM_SHAPE_CIRCLE: bowling ball with finger holes that roll with it
+    else // ITEM_SHAPE_CIRCLE
     {
-        // No stored orientation on a 1-particle body: integrate a roll angle
-        // from horizontal velocity (rolling without slipping, vx / r).
-        // ponytail: static is fine, each item child is its own process.
-        static float roll = 0.0f;
-        roll += (item->particles[0].pos.x - item->particles[0].oldPos.x) / spec.radius;
-
         Vector2 c = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
         DrawCircleV    (c, spec.radius, spec.fillColor);
         DrawCircleLines((int)c.x, (int)c.y, spec.radius, spec.outlineColor);
 
-        // Three finger holes clustered above center (fractions of the radius).
-        static const Vector2 HOLES[3] = { {-0.22f, -0.30f}, {0.22f, -0.30f}, {0.0f, 0.02f} };
-        float cs = cosf(roll), sn = sinf(roll);
-        for (int i = 0; i < 3; i++)
+        if (item->type == ITEM_BALL) // bowling ball: finger holes that roll with it
         {
-            Vector2 h = { HOLES[i].x * spec.radius, HOLES[i].y * spec.radius };
-            Vector2 p = { c.x + h.x * cs - h.y * sn, c.y + h.x * sn + h.y * cs };
-            DrawCircleV(p, spec.radius * 0.12f, DARKGRAY);
+            // No stored orientation on a 1-particle body: integrate a roll angle
+            // from horizontal velocity (rolling without slipping, vx / r).
+            // ponytail: static is fine, each item child is its own process.
+            static float roll = 0.0f;
+            roll += (item->particles[0].pos.x - item->particles[0].oldPos.x) / spec.radius;
+
+            // Three finger holes clustered above center (fractions of the radius).
+            static const Vector2 HOLES[3] = { {-0.22f, -0.30f}, {0.22f, -0.30f}, {0.0f, 0.02f} };
+            float cs = cosf(roll), sn = sinf(roll);
+            for (int i = 0; i < 3; i++)
+            {
+                Vector2 h = { HOLES[i].x * spec.radius, HOLES[i].y * spec.radius };
+                Vector2 p = { c.x + h.x * cs - h.y * sn, c.y + h.x * sn + h.y * cs };
+                DrawCircleV(p, spec.radius * 0.12f, DARKGRAY);
+            }
+        }
+        else if (item->type == ITEM_BOMB) // cartoon bomb: fuse with a blinking spark
+        {
+            Vector2 top = { c.x + spec.radius * 0.20f, c.y - spec.radius * 0.95f };
+            Vector2 tip = { top.x + spec.radius * 0.35f, top.y - spec.radius * 0.55f };
+            DrawLineEx(top, tip, 4.0f, BROWN);
+            bool sparkOn = ((int)(GetTime() * 8.0) % 2) == 0;
+            DrawCircleV(tip, 5.0f, sparkOn ? YELLOW : ORANGE);
         }
     }
+}
+
+// Cartoon blast: an expanding shell with a bright core, fading out as
+// `progress` runs 0 -> 1. Drawn in window-local coordinates.
+void DrawExplosion(Vector2 center, float maxRadius, float progress)
+{
+    ClearBackground(BLANK);
+
+    float ease  = 1.0f - (1.0f - progress) * (1.0f - progress); // fast start, soft end
+    float r     = maxRadius * ease;
+    unsigned char a = (unsigned char)(200.0f * (1.0f - progress));
+
+    DrawCircleV(center, r,         (Color){ 255, 120,  30, a });
+    DrawCircleV(center, r * 0.6f,  (Color){ 255, 200,  60, a });
+    DrawCircleV(center, r * 0.3f,  (Color){ 255, 255, 160, a });
 }

@@ -15,8 +15,16 @@ typedef enum ItemType
 {
     ITEM_BALL,
     ITEM_BAT,
+    ITEM_BOMB,
     ITEM_TYPE_COUNT
 } ItemType;
+
+// Bomb tuning: fuse burn time, then a radial velocity kick applied by every
+// process to its own particles (see BlastSlot in r_sync.h).
+#define BOMB_FUSE_TIME    3.0   // seconds from spawn to detonation
+#define BOMB_BOOM_TIME    0.45  // seconds the explosion visual lasts
+#define BOMB_BLAST_RADIUS 260.0f // px reach of the blast
+#define BOMB_BLAST_POWER  22.0f  // px/frame velocity kick at the center
 
 // Physical shape of an item, used to pick the right collision routine.
 typedef enum ItemShape
@@ -48,8 +56,16 @@ typedef struct
 // keeps valid pointers to item's own arrays (reuses ApplyPhysics like the puppet).
 void      CreateItem(Item *item, ItemType type, Vector2 startPos);
 
-// Draw the item relative to its bounding-box origin (the window follows bounds).
+// Draw the item relative to its window box origin (the window follows it).
 void      DrawItem(const Item *item);
+
+// Window box for an item: body bounds plus headroom for decorations drawn
+// outside the physics shape (the bomb's fuse). Feed this to UpdateWindow.
+BoundBox  ItemWindowBounds(const Item *item);
+
+// Cartoon blast visual, drawn at `center` (window-local), growing to
+// `maxRadius` as `progress` runs 0 -> 1.
+void      DrawExplosion(Vector2 center, float maxRadius, float progress);
 
 // Collision shape of a kind, so callers can pick the right resolve routine.
 ItemShape ItemShapeOf(ItemType type);

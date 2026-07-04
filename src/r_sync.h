@@ -29,12 +29,25 @@ typedef struct
     bool done;     // set true by the menu child once a choice is made
 } MenuSlot;
 
+// One-shot blast event, written by an exploding bomb child. Every process
+// applies the kick to its OWN particles when it sees `seq` change (each keeps
+// its last-seen value). ponytail: single slot — two bombs detonating in the
+// same instant may lose one blast; add a small ring buffer if that ever hurts.
+typedef struct
+{
+    Vector2      pos;    // blast center (screen space)
+    float        radius; // blast reach in px
+    float        power;  // velocity kick at the center, px/frame
+    unsigned int seq;    // bumped once per detonation, AFTER the fields above
+} BlastSlot;
+
 typedef struct SharedState
 {
-    int      limbCount;         // puppet -> children
-    Particle limbs[LIMB_COUNT]; // puppet -> children (refreshed each frame)
-    ItemSlot items[MAX_ITEMS];  // each item child -> puppet (one slot per child)
-    MenuSlot menu;              // menu child -> puppet
+    int       limbCount;         // puppet -> children
+    Particle  limbs[LIMB_COUNT]; // puppet -> children (refreshed each frame)
+    ItemSlot  items[MAX_ITEMS];  // each item child -> puppet (one slot per child)
+    MenuSlot  menu;              // menu child -> puppet
+    BlastSlot blast;             // exploding bomb -> everyone
 } SharedState;
 
 // =============================================================================

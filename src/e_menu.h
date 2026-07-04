@@ -12,6 +12,7 @@ enum MenuItemId
 {
     MENU_ITEM_BALL,
     MENU_ITEM_BAT,
+    MENU_ITEM_BOMB,
     MENU_ITEM_COUNT
 };
 

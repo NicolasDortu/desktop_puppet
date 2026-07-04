@@ -276,6 +276,35 @@ static void UpdateBones(Body *body)
 }
 
 // =============================================================================
+//  BLAST
+// =============================================================================
+
+// Kick every particle within `radius` of `center` straight away from it.
+// `power` is the velocity injected at the center, fading linearly to zero at
+// the edge. Verlet: pushing oldPos back adds velocity without moving the
+// particle; the next integration step turns it into motion.
+void ApplyBlastToBody(Body *body, Vector2 center, float radius, float power)
+{
+    for (int i = 0; i < body->particleCount; i++)
+    {
+        Particle *p = &body->particles[i];
+        if (p->isDragged)
+            continue;
+
+        float dx    = p->pos.x - center.x;
+        float dy    = p->pos.y - center.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 >= radius * radius || dist2 < 1e-6f)
+            continue;
+
+        float dist = sqrtf(dist2);
+        float kick = power * (1.0f - dist / radius) / dist; // /dist normalizes (dx,dy)
+        p->oldPos.x -= dx * kick;
+        p->oldPos.y -= dy * kick;
+    }
+}
+
+// =============================================================================
 //  GEOMETRY QUERIES
 // =============================================================================
 

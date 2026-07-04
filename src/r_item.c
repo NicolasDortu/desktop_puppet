@@ -181,8 +181,8 @@ int RunItem(int argc, char **argv)
     Item item;
     CreateItem(&item, type, (Vector2){ startX, startY });
 
-    // -- Setup: window sized to the item's bounding box (it follows bounds) --
-    BoundBox b0 = item.body.bounds;
+    // -- Setup: window sized to the item's window box (it follows it) --
+    BoundBox b0 = ItemWindowBounds(&item);
     InitOverlayWindow((int)b0.w + 2 * WINDOW_MARGIN, (int)b0.h + 2 * WINDOW_MARGIN);
     SetTargetFPS(TARGET_FPS);
 
@@ -197,11 +197,25 @@ int RunItem(int argc, char **argv)
 
     BoundBox screen = GetScreenArea();
 
+    unsigned int lastBlast = shared->blast.seq; // ignore blasts from before we spawned
+    double       fuseEnd   = GetTime() + BOMB_FUSE_TIME; // only bombs look at this
+
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
     {
+        if (type == ITEM_BOMB && GetTime() >= fuseEnd)
+            break; // fuse burnt: fall through to the detonation below
+
         // Input
         DragBody(&item.body);
+
+        // A bomb went off somewhere: kick our own particles (every process
+        // applies the blast to the particles it owns).
+        if (shared->blast.seq != lastBlast)
+        {
+            lastBlast = shared->blast.seq;
+            ApplyBlastToBody(&item.body, shared->blast.pos, shared->blast.radius, shared->blast.power);
+        }
 
         // Simulation: collide against a local copy of each limb (we must not
         // write into shared->limbs, which the puppet owns).
@@ -231,12 +245,42 @@ int RunItem(int argc, char **argv)
         shared->items[slot].type   = type;
         shared->items[slot].active = true;
 
-        // Size/position the window to the item's bounds, then draw.
-        UpdateWindow(item.body.bounds);
+        // Size/position the window to the item's window box, then draw.
+        UpdateWindow(ItemWindowBounds(&item));
 
         BeginDrawing();
             DrawItem(&item);
         EndDrawing();
+    }
+
+    // -- Bomb: detonate (only when the fuse ran out, not on manual close) --
+    if (type == ITEM_BOMB && !WindowShouldClose() && IpcProcessAlive(parentH))
+    {
+        Vector2 c = item.particles[0].pos;
+
+        shared->items[slot].active = false; // the bomb itself is gone
+
+        // Publish the blast: parameters first, seq bump last (readers key on seq).
+        shared->blast.pos    = c;
+        shared->blast.radius = BOMB_BLAST_RADIUS;
+        shared->blast.power  = BOMB_BLAST_POWER;
+        shared->blast.seq++;
+
+        // Grow the window to cover the blast area and play the visual.
+        float R = BOMB_BLAST_RADIUS;
+        UpdateWindow((BoundBox){ c.x - R, c.y - R, 2 * R, 2 * R });
+        Vector2 local = { R + WINDOW_MARGIN, R + WINDOW_MARGIN };
+
+        double t0 = GetTime();
+        while (!WindowShouldClose() && IpcProcessAlive(parentH))
+        {
+            float progress = (float)((GetTime() - t0) / BOMB_BOOM_TIME);
+            if (progress >= 1.0f)
+                break;
+            BeginDrawing();
+                DrawExplosion(local, R, progress);
+            EndDrawing();
+        }
     }
 
     // -- Teardown --

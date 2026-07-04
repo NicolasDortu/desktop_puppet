@@ -50,6 +50,7 @@ void     ApplyPhysics             (Body *body, BoundBox screen); // screen = usa
 void     ResolveCirclesCollisions (Particle *a, Particle *b);
 void     ResolveCapsuleCircleCollision (Particle *a, Particle *b, Particle *c); // capsule a-b (radius a->radius) vs circle c
 void     ResolveCapsulesCollision (Particle *a1, Particle *a2, Particle *b1, Particle *b2); // capsule a1-a2 vs capsule b1-b2
+void     ApplyBlastToBody         (Body *body, Vector2 center, float radius, float power);  // radial velocity kick (bomb)
 BoundBox ComputeBoundBox          (const Body *body);
 float    ParticlesDistance        (const Particle *a, const Particle *b);
 

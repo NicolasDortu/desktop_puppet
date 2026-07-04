@@ -92,6 +92,14 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
         SpawnItem(reg, shared, parentPid, ITEM_BAT, x, y);
         break;
     }
+    case MENU_ITEM_BOMB:
+    {
+        // Spawn the bomb just to the right of the puppet's bounding box.
+        int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
+        int y = (int)(pup->body.bounds.y);
+        SpawnItem(reg, shared, parentPid, ITEM_BOMB, x, y);
+        break;
+    }
     // case ...
     default:
         break;

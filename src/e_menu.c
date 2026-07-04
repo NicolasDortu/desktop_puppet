@@ -10,6 +10,7 @@
 const MenuItem MENU_ITEMS[MENU_ITEM_COUNT] = {
     {.id = MENU_ITEM_BALL, .action = "BOWLING BALL" },
     {.id = MENU_ITEM_BAT,  .action = "BAT"          },
+    {.id = MENU_ITEM_BOMB, .action = "BOMB"         },
 };
 
 static const Color MENU_BG_COLOR = {40, 40, 40, 230};

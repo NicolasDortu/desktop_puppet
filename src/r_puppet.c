@@ -49,6 +49,8 @@ int RunPuppet(int argc, char **argv)
 
     SetTargetFPS(TARGET_FPS);
 
+    unsigned int lastBlast = shared->blast.seq;
+
     // -- Main loop --
     while (!WindowShouldClose())
     {
@@ -56,6 +58,13 @@ int RunPuppet(int argc, char **argv)
         DragBody(&pup.body);
         ToggleMenu(&pup, &menu, shared, selfPid);
         MenuActions(&pup, &menu, &items, shared, selfPid);
+
+        // A bomb went off: kick our limbs (each process kicks its own body).
+        if (shared->blast.seq != lastBlast)
+        {
+            lastBlast = shared->blast.seq;
+            ApplyBlastToBody(&pup.body, shared->blast.pos, shared->blast.radius, shared->blast.power);
+        }
 
         // Simulation
         ApplyPhysics(&pup.body, screen);
