@@ -34,7 +34,7 @@ typedef struct
 } ItemSpec;
 
 static const ItemSpec ITEM_SPECS[ITEM_TYPE_COUNT] = {
-    [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .fillColor = GRAY,  .outlineColor = BLACK },
+    [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
     [ITEM_BAT]  = { .shape = ITEM_SHAPE_CAPSULE, .radius =  11.0f, .length = 186.0f, .fillColor = BROWN, .outlineColor = BLACK },
 };
 
@@ -130,10 +130,26 @@ void DrawItem(const Item *item)
         else
             DrawLineEx(a, c, 2 * spec.radius, spec.fillColor); // skin missing on disk
     }
-    else // ITEM_SHAPE_CIRCLE
+    else // ITEM_SHAPE_CIRCLE: bowling ball with finger holes that roll with it
     {
+        // No stored orientation on a 1-particle body: integrate a roll angle
+        // from horizontal velocity (rolling without slipping, vx / r).
+        // ponytail: static is fine, each item child is its own process.
+        static float roll = 0.0f;
+        roll += (item->particles[0].pos.x - item->particles[0].oldPos.x) / spec.radius;
+
         Vector2 c = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
         DrawCircleV    (c, spec.radius, spec.fillColor);
         DrawCircleLines((int)c.x, (int)c.y, spec.radius, spec.outlineColor);
+
+        // Three finger holes clustered above center (fractions of the radius).
+        static const Vector2 HOLES[3] = { {-0.22f, -0.30f}, {0.22f, -0.30f}, {0.0f, 0.02f} };
+        float cs = cosf(roll), sn = sinf(roll);
+        for (int i = 0; i < 3; i++)
+        {
+            Vector2 h = { HOLES[i].x * spec.radius, HOLES[i].y * spec.radius };
+            Vector2 p = { c.x + h.x * cs - h.y * sn, c.y + h.x * sn + h.y * cs };
+            DrawCircleV(p, spec.radius * 0.12f, DARKGRAY);
+        }
     }
 }

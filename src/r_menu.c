@@ -76,15 +76,6 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
 
     switch (id)
     {
-    case MENU_ITEM_RED:
-        pup->color = RED;
-        break;
-    case MENU_ITEM_GREEN:
-        pup->color = GREEN;
-        break;
-    case MENU_ITEM_BLUE:
-        pup->color = BLUE;
-        break;
     case MENU_ITEM_BALL:
     {
         // Spawn the ball just to the right of the puppet's bounding box.

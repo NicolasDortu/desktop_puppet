@@ -3,6 +3,7 @@
 #include "physics.h"
 #include "renderer.h"
 
+#include <math.h>
 #include <string.h>
 
 #include "raylib.h"
@@ -76,12 +77,11 @@ static void InitPuppetBones(Puppet *pup)
 // =============================================================================
 
 // Build a fully-initialized puppet (limbs, bones, default physics) at `startPos`.
-void CreatePuppet(Puppet *pup, Color color, float radius, Vector2 startPos)
+void CreatePuppet(Puppet *pup, float radius, Vector2 startPos)
 {
     *pup = (Puppet){0};
 
     // -- Identity --
-    pup->color  = color;
     pup->radius = radius;
 
     // -- Skeleton --
@@ -137,5 +137,27 @@ void DrawPuppet(const Puppet *pup)
         }
         else
             DrawCircleV(local, limb.radius, pup->limbColors[i]); // skin missing on disk
+    }
+
+    // -- Eyes: two black dots riding on the head. The puppet has no stored
+    // orientation, so we derive "up" from the body->head axis; the eyes swing
+    // around the head center as the puppet tumbles.
+    Vector2 headPos = pup->limbs[LIMB_HEAD].pos;
+    Vector2 bodyPos = pup->limbs[LIMB_BODY].pos;
+    float   headR   = pup->limbs[LIMB_HEAD].radius;
+    float   len     = sqrtf((headPos.x - bodyPos.x) * (headPos.x - bodyPos.x) +
+                            (headPos.y - bodyPos.y) * (headPos.y - bodyPos.y));
+    if (len > 0.001f)
+    {
+        Vector2 up   = { (headPos.x - bodyPos.x) / len, (headPos.y - bodyPos.y) / len };
+        Vector2 side = { -up.y, up.x };
+        for (int s = -1; s <= 1; s += 2)
+        {
+            Vector2 eye = {
+                headPos.x - winOriginX + up.x * headR * 0.20f + side.x * headR * 0.35f * s,
+                headPos.y - winOriginY + up.y * headR * 0.20f + side.y * headR * 0.35f * s,
+            };
+            DrawCircleV(eye, headR * 0.13f, BLACK);
+        }
     }
 }

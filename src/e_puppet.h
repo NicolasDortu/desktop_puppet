@@ -55,7 +55,6 @@ typedef enum BoneId
 
 typedef struct Puppet
 {
-    Color      color;
     float      radius;                       // overall puppet size; limb radii are fractions of this
     Body       body;                         // physics state (particles + bones + bounds + cfg)
     PuppetLimb limbs[LIMB_COUNT];            // backing storage for body.particles
@@ -69,7 +68,7 @@ typedef struct Puppet
 
 // Build a fully-initialized puppet at `startPos`. Writes into `*pup` so the
 // internal Body keeps valid pointers to the caller's `limbs`/`bones` arrays.
-void CreatePuppet(Puppet *pup, Color color, float radius, Vector2 startPos);
+void CreatePuppet(Puppet *pup, float radius, Vector2 startPos);
 void DrawPuppet (const Puppet *pup);
 
 

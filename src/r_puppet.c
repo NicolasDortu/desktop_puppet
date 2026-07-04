@@ -43,7 +43,7 @@ int RunPuppet(int argc, char **argv)
 
     Vector2      startPos = {win.screenWidth / 2.0f, win.screenHeight / 2.0f};
     Puppet       pup;
-    CreatePuppet(&pup, YELLOW, radius, startPos);
+    CreatePuppet(&pup, radius, startPos);
     Menu         menu  = {0};
     ItemRegistry items = {0};
 

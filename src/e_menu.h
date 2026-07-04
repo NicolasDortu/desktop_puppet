@@ -10,9 +10,6 @@
 // Stable ids for menu items. Shared between the puppet process and the menu process.
 enum MenuItemId
 {
-    MENU_ITEM_RED,
-    MENU_ITEM_GREEN,
-    MENU_ITEM_BLUE,
     MENU_ITEM_BALL,
     MENU_ITEM_BAT,
     MENU_ITEM_COUNT
@@ -22,13 +19,12 @@ typedef struct
 {
     int         id;     // id is used to know which item was clicked
     const char *action; // Action of the item (also shown as label)
-    Color       color;  // Color of the small rectangle next to the label
 } MenuItem;
 
 // Menu visual constants, shared so the parent (window placement) and child
-#define MENU_WIDTH       120   // pixel width of a single column
+#define MENU_WIDTH       150   // pixel width of a single column (fits "BOWLING BALL")
 #define MENU_ITEM_HEIGHT 30    // pixel height of a single row
-#define MENU_ICON_SIZE   16
+#define MENU_FONT_SIZE   16
 #define MENU_PADDING     8
 #define MENU_MAX_ROWS    5     // when more items than this, start a new column
 

@@ -8,11 +8,8 @@
 
 // Single source of truth for menu items.
 const MenuItem MENU_ITEMS[MENU_ITEM_COUNT] = {
-    {.id = MENU_ITEM_RED,   .action = "RED",   .color = RED   },
-    {.id = MENU_ITEM_GREEN, .action = "GREEN", .color = GREEN },
-    {.id = MENU_ITEM_BLUE,  .action = "BLUE",  .color = BLUE  },
-    {.id = MENU_ITEM_BALL,  .action = "BALL",  .color = GRAY  },
-    {.id = MENU_ITEM_BAT,   .action = "BAT",   .color = BROWN },
+    {.id = MENU_ITEM_BALL, .action = "BOWLING BALL" },
+    {.id = MENU_ITEM_BAT,  .action = "BAT"          },
 };
 
 static const Color MENU_BG_COLOR = {40, 40, 40, 230};
@@ -62,11 +59,10 @@ void DrawMenu(void)
     {
         int x = MenuItemCol(i) * MENU_WIDTH;
         int y = MenuItemRow(i) * MENU_ITEM_HEIGHT;
-        DrawRectangle(x, y + MENU_PADDING, MENU_ICON_SIZE, MENU_ICON_SIZE, MENU_ITEMS[i].color);
         DrawText(MENU_ITEMS[i].action,
-                 x + MENU_ICON_SIZE + MENU_PADDING,
+                 x + MENU_PADDING,
                  y + MENU_PADDING,
-                 MENU_ICON_SIZE,
+                 MENU_FONT_SIZE,
                  RAYWHITE);
     }
 }
