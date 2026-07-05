@@ -122,6 +122,15 @@ static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppe
         float push = sqrtf(dx * dx + dy * dy);
         if (push > maxPush)
             maxPush = push;
+
+        // Heavy items hit harder: the resolve above only displaced the limb
+        // by its share of the overlap; amplify the implicit velocity it gained
+        float punch = ItemPunchOf(type);
+        if (push > 0.0f && punch > 1.0f)
+        {
+            pup->limbs[j].oldPos.x -= dx * (punch - 1.0f);
+            pup->limbs[j].oldPos.y -= dy * (punch - 1.0f);
+        }
     }
     return maxPush;
 }

@@ -29,19 +29,25 @@ typedef struct
     ItemShape shape;
     float     radius;       // circle radius, or capsule half-thickness
     float     length;       // capsule end-to-end length (unused for circles)
+    float     punch;        // velocity multiplier inflicted on puppet limbs (1 = neutral, heavy items > 1)
     Color     fillColor;
     Color     outlineColor;
 } ItemSpec;
 
 static const ItemSpec ITEM_SPECS[ITEM_TYPE_COUNT] = {
-    [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
-    [ITEM_BAT]  = { .shape = ITEM_SHAPE_CAPSULE, .radius =  11.0f, .length = 186.0f, .fillColor = BROWN, .outlineColor = BLACK },
-    [ITEM_BOMB] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 22.0f, .length =  0.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
+    [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .punch = 3.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
+    [ITEM_BAT]  = { .shape = ITEM_SHAPE_CAPSULE, .radius =  11.0f, .length = 186.0f, .punch = 1.0f, .fillColor = BROWN, .outlineColor = BLACK },
+    [ITEM_BOMB] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 22.0f, .length =  0.0f, .punch = 1.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
 };
 
 ItemShape ItemShapeOf(ItemType type)
 {
     return ITEM_SPECS[type].shape;
+}
+
+float ItemPunchOf(ItemType type)
+{
+    return ITEM_SPECS[type].punch;
 }
 
 // =============================================================================

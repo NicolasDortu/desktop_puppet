@@ -74,4 +74,7 @@ void      DrawExplosion(Vector2 center, float maxRadius, float progress);
 // Collision shape of a kind, so callers can pick the right resolve routine.
 ItemShape ItemShapeOf(ItemType type);
 
+// How hard a kind hits the puppet (velocity multiplier, 1 = neutral).
+float     ItemPunchOf(ItemType type);
+
 #endif

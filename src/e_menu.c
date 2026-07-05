@@ -128,5 +128,5 @@ void DrawMenu(int coins)
     }
 
     // -- Gold frame around the whole shop --
-    DrawRectangleLines(0, 0, width, height, GOLD);
+    DrawRectangleLinesEx((Rectangle){ 0, 0, (float)width, (float)height }, 2.0f, GOLD);
 }

@@ -47,11 +47,9 @@ typedef struct
 //  SHOP / HURT
 // =============================================================================
 
-// The puppet earns a coin when it "gets hurt": a hard wall impact or a solid
-// shove from an item. Thresholds filter out resting contact; the cooldown
-// stops a single crash from paying out every frame.
-#define HURT_WALL_SPEED      8.0f  // px/frame impact speed on a wall that counts as a hit
-#define HURT_ITEM_PUSH       2.5f  // px of limb displacement by an item in one frame
+// The puppet earns a coin when it "gets hurt": a hard wall impact or a solid shove from an item.
+#define HURT_WALL_SPEED      25.0f // px/frame impact speed on a wall that counts as a hit
+#define HURT_ITEM_PUSH       4.0f  // px of limb displacement by an item in one frame
 #define HURT_COOLDOWN_FRAMES 30    // min frames between two coins
 #define COINS_MAX            9999  // shop balance cap
 
