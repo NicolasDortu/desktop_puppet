@@ -48,6 +48,7 @@ typedef struct SharedState
     ItemSlot  items[MAX_ITEMS];  // each item child -> puppet (one slot per child)
     MenuSlot  menu;              // menu child -> puppet
     BlastSlot blast;             // exploding bomb -> everyone
+    int       coins;             // puppet -> menu child (shop balance display)
 } SharedState;
 
 // =============================================================================

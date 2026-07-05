@@ -1,6 +1,7 @@
 #include "r_puppet.h"
 #include "r_item.h"
 #include "r_menu.h"
+#include "r_coin.h"
 #include "r_sync.h"
 #include "e_puppet.h"
 #include "ipc.h"
@@ -44,12 +45,15 @@ int RunPuppet(int argc, char **argv)
     Vector2      startPos = {screen.x + screen.w / 2.0f, screen.y + screen.h / 2.0f};
     Puppet       pup;
     CreatePuppet(&pup, radius, startPos);
-    Menu         menu  = {0};
-    ItemRegistry items = {0};
+    Menu         menu       = {0};
+    ItemRegistry items      = {0};
+    CoinPopups   coinPopups = {0};
 
     SetTargetFPS(TARGET_FPS);
 
-    unsigned int lastBlast = shared->blast.seq;
+    unsigned int lastBlast    = shared->blast.seq;
+    int          coins        = 0; // shop balance; this process is the only writer
+    int          hurtCooldown = 0;
 
     // -- Main loop --
     while (!WindowShouldClose())
@@ -57,7 +61,7 @@ int RunPuppet(int argc, char **argv)
         // Input
         DragBody(&pup.body);
         ToggleMenu(&pup, &menu, shared, selfPid);
-        MenuActions(&pup, &menu, &items, shared, selfPid);
+        MenuActions(&pup, &menu, &items, shared, selfPid, &coins);
 
         // A bomb went off: kick our limbs (each process kicks its own body).
         if (shared->blast.seq != lastBlast)
@@ -69,7 +73,23 @@ int RunPuppet(int argc, char **argv)
         // Simulation
         ApplyPhysics(&pup.body, screen);
         EnforcePuppetPose(&pup);
-        UpdateItems(&items, shared, &pup);
+        float itemPush = UpdateItems(&items, shared, &pup);
+
+        // -- Coins: getting hurt pays out (hard wall crash or a solid item hit) --
+        if (hurtCooldown > 0)
+            hurtCooldown--;
+        if (hurtCooldown == 0 &&
+            (pup.body.wallImpact > HURT_WALL_SPEED || itemPush > HURT_ITEM_PUSH))
+        {
+            if (coins < COINS_MAX)
+                coins++;
+            PuppetLimb head = pup.limbs[LIMB_HEAD];
+            SpawnCoinPopup(&coinPopups, selfPid,
+                           (int)head.pos.x, (int)(head.pos.y - head.radius - 20));
+            hurtCooldown = HURT_COOLDOWN_FRAMES;
+        }
+        shared->coins = coins;
+
         UpdateWindow(pup.body.bounds);
 
         // Render
@@ -79,6 +99,7 @@ int RunPuppet(int argc, char **argv)
     }
 
     // -- Teardown --
+    CloseCoinPopups(&coinPopups);
     CloseAllItems(&items);
     CloseMenu(&menu);
     IpcShmClose(&shm);

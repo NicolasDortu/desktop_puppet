@@ -8,6 +8,7 @@
 #include "renderer.h"
 #include "config.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -103,27 +104,39 @@ static void CollideItemWithItem(Particle *mine, ItemType myType,
 // the item's particles (owned by the child via shared memory) so only the limb
 // side of the resolution is kept; the item's own correction is discarded and
 // redone authoritatively by the child next frame.
-static void CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppet *pup)
+// Returns the biggest displacement an item inflicted on a limb (0 = no contact).
+static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppet *pup)
 {
+    float maxPush = 0.0f;
     for (int j = 0; j < LIMB_COUNT; j++)
     {
         Particle copy[ITEM_MAX_PARTICLES];
         for (int i = 0; i < ITEM_MAX_PARTICLES; i++)
             copy[i] = slot->particles[i];
+
+        Vector2 before = pup->limbs[j].pos;
         CollideItemWithCircle(copy, type, &pup->limbs[j]);
+
+        float dx   = pup->limbs[j].pos.x - before.x;
+        float dy   = pup->limbs[j].pos.y - before.y;
+        float push = sqrtf(dx * dx + dy * dy);
+        if (push > maxPush)
+            maxPush = push;
     }
+    return maxPush;
 }
 
 // Publish the puppet limbs, collide each live item against them, reap children
-// that have exited.
-void UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup)
+// that have exited. Returns the biggest limb displacement an item caused.
+float UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup)
 {
     // -- Publish the puppet limbs for every child to read --
     shared->limbCount = LIMB_COUNT;
     for (int i = 0; i < LIMB_COUNT; i++)
         shared->limbs[i] = pup->limbs[i];
 
-    bool puppetTouched = false;
+    bool  puppetTouched = false;
+    float maxPush       = 0.0f;
 
     for (int slot = 0; slot < MAX_ITEMS; slot++)
     {
@@ -143,7 +156,9 @@ void UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup)
         // Collide the puppet against the item's latest published state.
         if (shared->items[slot].active)
         {
-            CollideItemAgainstPuppet(&shared->items[slot], meta->type, pup);
+            float push = CollideItemAgainstPuppet(&shared->items[slot], meta->type, pup);
+            if (push > maxPush)
+                maxPush = push;
             puppetTouched = true;
         }
     }
@@ -151,6 +166,8 @@ void UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup)
     // Limb displacements above invalidate the cached bounds used for window sizing.
     if (puppetTouched)
         pup->body.bounds = ComputeBoundBox(&pup->body);
+
+    return maxPush;
 }
 
 // Terminate every live item child (called on shutdown).
@@ -198,13 +215,16 @@ int RunItem(int argc, char **argv)
     BoundBox screen = GetScreenArea();
 
     unsigned int lastBlast = shared->blast.seq; // ignore blasts from before we spawned
-    double       fuseEnd   = GetTime() + BOMB_FUSE_TIME; // only bombs look at this
+
+    // Items are temporary: a bomb burns its short fuse, everything else
+    // despawns after ITEM_LIFETIME (the window just closes; the parent reaps).
+    double dieAt = GetTime() + ((type == ITEM_BOMB) ? BOMB_FUSE_TIME : ITEM_LIFETIME);
 
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
     {
-        if (type == ITEM_BOMB && GetTime() >= fuseEnd)
-            break; // fuse burnt: fall through to the detonation below
+        if (GetTime() >= dieAt)
+            break; // lifetime over: bombs detonate below, others just exit
 
         // Input
         DragBody(&item.body);

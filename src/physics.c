@@ -14,7 +14,10 @@
 // In Verlet, velocity is implicit:  v = pos - oldPos
 // We derive v, apply friction & gravity, move the particle, then handle wall collisions
 // by reflecting `oldPos` so the next frame's implicit velocity points away from the wall.
-static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, BoundBox screen)
+// `wallImpact` accumulates the biggest incoming speed among wall contacts, so
+// the caller can tell a hard crash from resting contact.
+static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, BoundBox screen,
+                              float *wallImpact)
 {
     // --- Derive velocity from last frame's displacement, apply friction ---
     float vx = (particle->pos.x - particle->oldPos.x) * cfg->friction;
@@ -38,21 +41,25 @@ static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, Boun
     {
         particle->pos.y    = screen.y + screen.h - particle->radius;
         particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
+        if (vy > *wallImpact) *wallImpact = vy;
     }
     if (particle->pos.y - particle->radius < screen.y)             // ceiling
     {
         particle->pos.y    = screen.y + particle->radius;
         particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
+        if (-vy > *wallImpact) *wallImpact = -vy;
     }
     if (particle->pos.x + particle->radius > screen.x + screen.w)  // right wall
     {
         particle->pos.x    = screen.x + screen.w - particle->radius;
         particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
+        if (vx > *wallImpact) *wallImpact = vx;
     }
     if (particle->pos.x - particle->radius < screen.x)             // left wall
     {
         particle->pos.x    = screen.x + particle->radius;
         particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
+        if (-vx > *wallImpact) *wallImpact = -vx;
     }
 }
 
@@ -358,10 +365,11 @@ BoundBox ComputeBoundBox(const Body *body)
 // diagonals) is what holds the shape.
 void ApplyPhysics(Body *body, BoundBox screen)
 {
+    body->wallImpact = 0.0f;
     for (int i = 0; i < body->particleCount; i++)
     {
         if (!body->particles[i].isDragged)
-            IntegrateParticle(&body->particles[i], &body->cfg, screen);
+            IntegrateParticle(&body->particles[i], &body->cfg, screen, &body->wallImpact);
     }
 
     for (int iter = 0; iter < CONSTRAINT_ITERATIONS; iter++)

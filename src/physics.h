@@ -40,6 +40,7 @@ typedef struct
     int            boneCount;
     BoundBox       bounds;
     PhysicsConfig  cfg;
+    float          wallImpact;   // biggest wall-impact speed seen during the last ApplyPhysics
 } Body;
 
 // =============================================================================

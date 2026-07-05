@@ -19,6 +19,10 @@ typedef enum ItemType
     ITEM_TYPE_COUNT
 } ItemType;
 
+// Bought items are temporary: everything despawns after ITEM_LIFETIME except
+// the bomb, which ends itself much sooner by exploding.
+#define ITEM_LIFETIME     60.0  // seconds a bought item stays around
+
 // Bomb tuning: fuse burn time, then a radial velocity kick applied by every
 // process to its own particles (see BlastSlot in r_sync.h).
 #define BOMB_FUSE_TIME    3.0   // seconds from spawn to detonation

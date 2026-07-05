@@ -36,7 +36,9 @@ typedef struct
 // Parent side.
 bool SpawnItem(ItemRegistry *reg, SharedState *shared, unsigned long parentPid,
                ItemType type, int posX, int posY);       // launch a child of the requested kind
-void UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup); // publish limbs, collide, reap
+// Publish limbs, collide, reap. Returns the biggest limb displacement caused
+// by an item this frame (px) — the puppet's "how hard was I hit" signal.
+float UpdateItems(ItemRegistry *reg, SharedState *shared, Puppet *pup);
 void CloseAllItems(ItemRegistry *reg);                                 // terminate every live child
 
 // Child entry point.

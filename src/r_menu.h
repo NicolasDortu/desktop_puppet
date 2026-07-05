@@ -30,7 +30,8 @@ void OpenMenu(Menu *menu, SharedState *shared, unsigned long parentPid,
               int screenX, int screenY);
 void CloseMenu(Menu *menu);
 void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
-                 SharedState *shared, unsigned long parentPid);  // poll click + dispatch
+                 SharedState *shared, unsigned long parentPid,
+                 int *coins);  // poll click, validate the price, spawn + deduct
 void ToggleMenu(Puppet *pup, Menu *menu, SharedState *shared, unsigned long parentPid);
 
 // Child entry point.

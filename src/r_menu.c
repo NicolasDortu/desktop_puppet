@@ -57,8 +57,10 @@ void CloseMenu(Menu *menu)
 }
 
 // Poll the shared MenuSlot for a click result and dispatch the chosen action.
+// The shop's purchase check lives HERE, not in the menu child: the child only
+// grays out rows it can't afford, the parent owns the balance.
 void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
-                 SharedState *shared, unsigned long parentPid)
+                 SharedState *shared, unsigned long parentPid, int *coins)
 {
     if (!menu->isOpen)
         return;
@@ -77,30 +79,24 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
     switch (id)
     {
     case MENU_ITEM_BALL:
-    {
-        // Spawn the ball just to the right of the puppet's bounding box.
-        int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
-        int y = (int)(pup->body.bounds.y);
-        SpawnItem(reg, shared, parentPid, ITEM_BALL, x, y);
-        break;
-    }
     case MENU_ITEM_BAT:
-    {
-        // Spawn the bat just to the right of the puppet's bounding box.
-        int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
-        int y = (int)(pup->body.bounds.y);
-        SpawnItem(reg, shared, parentPid, ITEM_BAT, x, y);
-        break;
-    }
     case MENU_ITEM_BOMB:
     {
-        // Spawn the bomb just to the right of the puppet's bounding box.
-        int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
-        int y = (int)(pup->body.bounds.y);
-        SpawnItem(reg, shared, parentPid, ITEM_BOMB, x, y);
+        int price = MENU_ITEMS[id].price; // table order matches the id enum
+        if (*coins < price)
+            break;
+
+        // Spawn the bought item just to the right of the puppet's bounding
+        // box; only a successful spawn costs coins.
+        int      x    = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
+        int      y    = (int)(pup->body.bounds.y);
+        ItemType type = (id == MENU_ITEM_BALL) ? ITEM_BALL
+                      : (id == MENU_ITEM_BAT)  ? ITEM_BAT
+                                               : ITEM_BOMB;
+        if (SpawnItem(reg, shared, parentPid, type, x, y))
+            *coins -= price;
         break;
     }
-    // case ...
     default:
         break;
     }
@@ -170,7 +166,7 @@ int RunMenu(int argc, char **argv)
 
         // -- Render --
         BeginDrawing();
-            DrawMenu();
+            DrawMenu(shared->coins);
         EndDrawing();
 
         frame++;
