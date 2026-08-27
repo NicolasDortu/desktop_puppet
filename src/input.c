@@ -7,7 +7,7 @@
 // =============================================================================
 
 // Cursor position in screen-space coordinates.
-Vector2 GetScreenMousePos(void)
+static Vector2 GetScreenMousePos(void)
 {
     Vector2 mousePos = GetMousePosition();
     Vector2 winPos   = GetWindowPosition();
@@ -15,7 +15,7 @@ Vector2 GetScreenMousePos(void)
 }
 
 // Return true if the cursor is inside the circle.
-bool MouseInsideCircle(Vector2 mouseScreen, Vector2 center, float radius)
+static bool MouseInsideCircle(Vector2 mouseScreen, Vector2 center, float radius)
 {
     float dx = mouseScreen.x - center.x;
     float dy = mouseScreen.y - center.y;
@@ -32,7 +32,7 @@ bool MouseInsideCircle(Vector2 mouseScreen, Vector2 center, float radius)
 #define GRAB_PADDING 6.0f
 
 // Topmost particle under the cursor (iterate in reverse for proper z-ordering).
-int GetHoveredParticle(const Body *body, Vector2 mouseScreenPos)
+static int GetHoveredParticle(const Body *body, Vector2 mouseScreenPos)
 {
     for (int i = body->particleCount - 1; i >= 0; i--)
     {
@@ -76,14 +76,12 @@ void DragBody(Body *body)
         }
     }
 
-    // End the drag on the release event, but ALSO when the button is simply
-    // no longer down or the window lost focus: a popup window appearing
+    // End the drag when the button is no longer down OR the window lost
+    // focus — not on the release event alone: a popup window appearing
     // mid-drag (e.g. a coin) can eat the release event, which used to leave
     // the limb glued in mid-air with physics skipping it.
     if (draggedIdx != -1 &&
-        (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) ||
-         !IsMouseButtonDown(MOUSE_LEFT_BUTTON) ||
-         !IsWindowFocused()))
+        (!IsMouseButtonDown(MOUSE_LEFT_BUTTON) || !IsWindowFocused()))
     {
         // Throw velocity = average cursor speed over the last few frames.
         Vector2 v = {0, 0};

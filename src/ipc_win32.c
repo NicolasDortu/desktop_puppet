@@ -1,5 +1,3 @@
-#ifdef _WIN32
-
 #include "ipc.h"
 
 #include <windows.h>
@@ -179,5 +177,3 @@ bool IpcProcessAlive(void *handle)
         return false;
     return WaitForSingleObject((HANDLE)handle, 0) == WAIT_TIMEOUT;
 }
-
-#endif // _WIN32

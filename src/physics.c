@@ -16,15 +16,14 @@
 // by reflecting `oldPos` so the next frame's implicit velocity points away from the wall.
 // `wallImpact` accumulates the biggest incoming speed among wall contacts, so
 // the caller can tell a hard crash from resting contact.
-static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, BoundBox screen,
-                              float *wallImpact)
+static void IntegrateParticle(Particle *particle, BoundBox screen, float *wallImpact)
 {
     // --- Derive velocity from last frame's displacement, apply friction ---
-    float vx = (particle->pos.x - particle->oldPos.x) * cfg->friction;
-    float vy = (particle->pos.y - particle->oldPos.y) * cfg->friction;
+    float vx = (particle->pos.x - particle->oldPos.x) * PHYS_FRICTION;
+    float vy = (particle->pos.y - particle->oldPos.y) * PHYS_FRICTION;
 
     // --- Kill micro-velocities to stop residual jitter on a settled puppet ---
-    if (vx * vx + vy * vy < cfg->minBounce * cfg->minBounce)
+    if (vx * vx + vy * vy < PHYS_MIN_BOUNCE * PHYS_MIN_BOUNCE)
     {
         vx = 0.0f;
         vy = 0.0f;
@@ -33,32 +32,32 @@ static void IntegrateParticle(Particle *particle, const PhysicsConfig *cfg, Boun
     // --- Integrate: oldPos <- pos, then move pos by velocity + gravity ---
     particle->oldPos = particle->pos;
     particle->pos.x += vx;
-    particle->pos.y += vy + cfg->gravity;
+    particle->pos.y += vy + PHYS_GRAVITY;
 
     // --- Wall collisions: clamp position, reflect implicit velocity ---
     // Walls are the edges of the usable desktop area (taskbar excluded).
     if (particle->pos.y + particle->radius > screen.y + screen.h)  // floor
     {
         particle->pos.y    = screen.y + screen.h - particle->radius;
-        particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
+        particle->oldPos.y = particle->pos.y - vy * PHYS_BOUNCE;
         if (vy > *wallImpact) *wallImpact = vy;
     }
     if (particle->pos.y - particle->radius < screen.y)             // ceiling
     {
         particle->pos.y    = screen.y + particle->radius;
-        particle->oldPos.y = particle->pos.y - vy * cfg->bounce;
+        particle->oldPos.y = particle->pos.y - vy * PHYS_BOUNCE;
         if (-vy > *wallImpact) *wallImpact = -vy;
     }
     if (particle->pos.x + particle->radius > screen.x + screen.w)  // right wall
     {
         particle->pos.x    = screen.x + screen.w - particle->radius;
-        particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
+        particle->oldPos.x = particle->pos.x - vx * PHYS_BOUNCE;
         if (vx > *wallImpact) *wallImpact = vx;
     }
     if (particle->pos.x - particle->radius < screen.x)             // left wall
     {
         particle->pos.x    = screen.x + particle->radius;
-        particle->oldPos.x = particle->pos.x - vx * cfg->bounce;
+        particle->oldPos.x = particle->pos.x - vx * PHYS_BOUNCE;
         if (-vx > *wallImpact) *wallImpact = -vx;
     }
 }
@@ -269,7 +268,7 @@ static void UpdateBones(Body *body)
         if (distance < 1e-6f) continue;  // avoid division by zero on coincident limbs
 
         // --- Compute the per-limb correction ---
-        float stiffness = bone->soft ? body->cfg.stiffness : 1.0f;
+        float stiffness = bone->soft ? PHYS_STIFFNESS : 1.0f;
         float error     = distance - bone->length;                  // how far the bone is from its rest length
         float percent   = (error / distance) * 0.5f * stiffness;    // fraction of the error each endpoint must absorb
 
@@ -351,6 +350,30 @@ BoundBox ComputeBoundBox(const Body *body)
     return (BoundBox){.x = minX, .y = minY, .w = maxX - minX, .h = maxY - minY};
 }
 
+// Inflate a window box by speed-proportional slack. SetWindowPosition takes
+// effect with about a frame of lag, so at high speed the drawing would land
+// outside the real window and clip away mid-throw; the slack keeps ~two
+// frames of travel inside.
+BoundBox AddSpeedSlack(const Body *body, BoundBox b)
+{
+    float maxV2 = 0.0f;
+    for (int i = 0; i < body->particleCount; i++)
+    {
+        float vx = body->particles[i].pos.x - body->particles[i].oldPos.x;
+        float vy = body->particles[i].pos.y - body->particles[i].oldPos.y;
+        float v2 = vx * vx + vy * vy;
+        if (v2 > maxV2)
+            maxV2 = v2;
+    }
+
+    float slack = 4.0f + 2.0f * sqrtf(maxV2);
+    b.x -= slack;
+    b.y -= slack;
+    b.w += 2.0f * slack;
+    b.h += 2.0f * slack;
+    return b;
+}
+
 // =============================================================================
 //  PHYSICS ENTRY POINT
 // =============================================================================
@@ -369,7 +392,7 @@ void ApplyPhysics(Body *body, BoundBox screen)
     for (int i = 0; i < body->particleCount; i++)
     {
         if (!body->particles[i].isDragged)
-            IntegrateParticle(&body->particles[i], &body->cfg, screen, &body->wallImpact);
+            IntegrateParticle(&body->particles[i], screen, &body->wallImpact);
     }
 
     for (int iter = 0; iter < CONSTRAINT_ITERATIONS; iter++)

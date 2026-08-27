@@ -4,7 +4,6 @@
 #include "renderer.h"
 
 #include <math.h>
-#include <string.h>
 
 #include "raylib.h"
 
@@ -39,12 +38,12 @@ static void InitPuppetLimbs(Puppet *pup, Vector2 startPos)
     Vector2 footRPos = { c.x + bodyR * feetSpread, c.y + bodyR                  };
 
     // --- Build the limbs (oldPos = pos => zero initial velocity) ---
-    pup->limbs[LIMB_BODY]   = (PuppetLimb){ .pos = bodyPos,  .oldPos = bodyPos,  .radius = bodyR };
-    pup->limbs[LIMB_HEAD]   = (PuppetLimb){ .pos = headPos,  .oldPos = headPos,  .radius = headR };
-    pup->limbs[LIMB_ARM_L]  = (PuppetLimb){ .pos = armLPos,  .oldPos = armLPos,  .radius = limbR };
-    pup->limbs[LIMB_ARM_R]  = (PuppetLimb){ .pos = armRPos,  .oldPos = armRPos,  .radius = limbR };
-    pup->limbs[LIMB_FOOT_L] = (PuppetLimb){ .pos = footLPos, .oldPos = footLPos, .radius = limbR };
-    pup->limbs[LIMB_FOOT_R] = (PuppetLimb){ .pos = footRPos, .oldPos = footRPos, .radius = limbR };
+    pup->limbs[LIMB_BODY]   = (Particle){ .pos = bodyPos,  .oldPos = bodyPos,  .radius = bodyR };
+    pup->limbs[LIMB_HEAD]   = (Particle){ .pos = headPos,  .oldPos = headPos,  .radius = headR };
+    pup->limbs[LIMB_ARM_L]  = (Particle){ .pos = armLPos,  .oldPos = armLPos,  .radius = limbR };
+    pup->limbs[LIMB_ARM_R]  = (Particle){ .pos = armRPos,  .oldPos = armRPos,  .radius = limbR };
+    pup->limbs[LIMB_FOOT_L] = (Particle){ .pos = footLPos, .oldPos = footLPos, .radius = limbR };
+    pup->limbs[LIMB_FOOT_R] = (Particle){ .pos = footRPos, .oldPos = footRPos, .radius = limbR };
 
     // --- Per-limb render colors ---
     pup->limbColors[LIMB_BODY]   = YELLOW;
@@ -62,23 +61,23 @@ static void InitPuppetLimbs(Puppet *pup, Vector2 startPos)
 // HARD bones fix the structure: every limb stays at its distance from the
 // body (so the embedded look holds) and the feet cannot cross. SOFT bones are
 // the springs: the diagonals to the head let arms and feet swing with lag and
-// bounce back (cfg.stiffness sets how snappy). Distance springs are drift-safe
+// bounce back (PHYS_STIFFNESS sets how snappy). Distance springs are drift-safe
 // — they only push along the line between two particles and have a true rest
 // point — unlike a positional pull toward a rotating target, which pumps
 // energy and made the puppet walk on its own.
 static void InitPuppetBones(Puppet *pup)
 {
-    pup->bones[BODY_HEAD]   = (PuppetBone){ LIMB_BODY,   LIMB_HEAD,   ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_HEAD]),   false };
-    pup->bones[BODY_ARM_L]  = (PuppetBone){ LIMB_BODY,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_L]),  false };
-    pup->bones[BODY_ARM_R]  = (PuppetBone){ LIMB_BODY,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_R]),  false };
-    pup->bones[BODY_FOOT_L] = (PuppetBone){ LIMB_BODY,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_L]), false };
-    pup->bones[BODY_FOOT_R] = (PuppetBone){ LIMB_BODY,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_R]), false };
-    pup->bones[FOOT_FOOT]   = (PuppetBone){ LIMB_FOOT_L, LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_FOOT_L], &pup->limbs[LIMB_FOOT_R]), false };
+    pup->bones[BODY_HEAD]   = (Bone){ LIMB_BODY,   LIMB_HEAD,   ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_HEAD]),   false };
+    pup->bones[BODY_ARM_L]  = (Bone){ LIMB_BODY,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_L]),  false };
+    pup->bones[BODY_ARM_R]  = (Bone){ LIMB_BODY,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_ARM_R]),  false };
+    pup->bones[BODY_FOOT_L] = (Bone){ LIMB_BODY,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_L]), false };
+    pup->bones[BODY_FOOT_R] = (Bone){ LIMB_BODY,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_BODY],   &pup->limbs[LIMB_FOOT_R]), false };
+    pup->bones[FOOT_FOOT]   = (Bone){ LIMB_FOOT_L, LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_FOOT_L], &pup->limbs[LIMB_FOOT_R]), false };
 
-    pup->bones[HEAD_FOOT_L] = (PuppetBone){ LIMB_HEAD,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_L]), true  };
-    pup->bones[HEAD_FOOT_R] = (PuppetBone){ LIMB_HEAD,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_R]), true  };
-    pup->bones[HEAD_ARM_L]  = (PuppetBone){ LIMB_HEAD,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_L]),  true  };
-    pup->bones[HEAD_ARM_R]  = (PuppetBone){ LIMB_HEAD,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_R]),  true  };
+    pup->bones[HEAD_FOOT_L] = (Bone){ LIMB_HEAD,   LIMB_FOOT_L, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_L]), true  };
+    pup->bones[HEAD_FOOT_R] = (Bone){ LIMB_HEAD,   LIMB_FOOT_R, ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_FOOT_R]), true  };
+    pup->bones[HEAD_ARM_L]  = (Bone){ LIMB_HEAD,   LIMB_ARM_L,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_L]),  true  };
+    pup->bones[HEAD_ARM_R]  = (Bone){ LIMB_HEAD,   LIMB_ARM_R,  ParticlesDistance(&pup->limbs[LIMB_HEAD],   &pup->limbs[LIMB_ARM_R]),  true  };
 }
 
 // =============================================================================
@@ -103,7 +102,6 @@ void CreatePuppet(Puppet *pup, float radius, Vector2 startPos)
         .particleCount = LIMB_COUNT,
         .bones         = pup->bones,
         .boneCount     = BONE_COUNT,
-        .cfg           = DEFAULT_PHYSICS_CONFIG,
     };
     pup->body.bounds = ComputeBoundBox(&pup->body);
 }
@@ -112,31 +110,11 @@ void CreatePuppet(Puppet *pup, float radius, Vector2 startPos)
 //  WINDOW BOX
 // =============================================================================
 
-// Window box for the puppet: the body bounds inflated by speed-proportional
-// slack. SetWindowPosition takes effect with about a frame of lag, so at high
-// speed the drawing would land outside the real window and limbs would clip
-// away mid-throw; the slack keeps everything inside. Pure function of the
-// puppet state, so UpdateWindow and DrawPuppet compute the identical box.
+// Window box for the puppet: the body bounds plus speed slack. Pure function
+// of the puppet state, so UpdateWindow and DrawPuppet compute the identical box.
 BoundBox PuppetWindowBounds(const Puppet *pup)
 {
-    float maxV2 = 0.0f;
-    for (int i = 0; i < LIMB_COUNT; i++)
-    {
-        float vx = pup->limbs[i].pos.x - pup->limbs[i].oldPos.x;
-        float vy = pup->limbs[i].pos.y - pup->limbs[i].oldPos.y;
-        float v2 = vx * vx + vy * vy;
-        if (v2 > maxV2)
-            maxV2 = v2;
-    }
-
-    float slack = 4.0f + 2.0f * sqrtf(maxV2); // ~two frames of travel headroom
-
-    BoundBox b = pup->body.bounds;
-    b.x -= slack;
-    b.y -= slack;
-    b.w += 2.0f * slack;
-    b.h += 2.0f * slack;
-    return b;
+    return AddSpeedSlack(&pup->body, pup->body.bounds);
 }
 
 // =============================================================================
@@ -192,13 +170,17 @@ void EnforcePuppetPose(Puppet *pup)
         if (d * SIDES[i].side >= -1.0f)
             continue; // on its own side (1px of axis tolerance against jitter)
 
-        // Mirror pos AND oldPos across the axis so the implicit Verlet
-        // velocity flips along with the position.
-        float dOld  = (p->oldPos.x - body.x) * n.x + (p->oldPos.y - body.y) * n.y;
-        p->pos.x    -= 2.0f * d    * n.x;
-        p->pos.y    -= 2.0f * d    * n.y;
-        p->oldPos.x -= 2.0f * dOld * n.x;
-        p->oldPos.y -= 2.0f * dOld * n.y;
+        // Mirror pos across the axis, then keep the limb moving WITH the body.
+        // (Mirroring oldPos too reflected the limb's ABSOLUTE velocity: during
+        // a throw the calm-check passes — limbs fly with the body — so the
+        // reflection flipped the limb's lateral flight velocity, the bones
+        // fought it, and the puppet stopped dead or veered. The limb is calm
+        // relative to the body here, so continuing at the body's velocity
+        // discards at most calmSpeed px/frame — invisible.)
+        p->pos.x    -= 2.0f * d * n.x;
+        p->pos.y    -= 2.0f * d * n.y;
+        p->oldPos.x  = p->pos.x - bodyVel.x;
+        p->oldPos.y  = p->pos.y - bodyVel.y;
     }
 
     // Reflections move particles: refresh the cached bounds.
@@ -232,7 +214,7 @@ void DrawPuppet(const Puppet *pup)
 
     for (int i = 0; i < LIMB_COUNT; i++)
     {
-        PuppetLimb limb = pup->limbs[i];
+        Particle limb = pup->limbs[i];
         Vector2 local = {limb.pos.x - winOriginX, limb.pos.y - winOriginY};
         Texture2D tex = (i == LIMB_BODY) ? texBody
                       : (i == LIMB_HEAD) ? texHead

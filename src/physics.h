@@ -22,13 +22,13 @@ typedef struct
 
 // Distance constraint between two particles within a Body.
 // Hard bones snap exactly to `length`.
-// Soft bones only apply `cfg.stiffness` of the correction each iteration.
+// Soft bones only apply PHYS_STIFFNESS of the correction each iteration.
 typedef struct
 {
     int   particle1; // index into Body.particles
     int   particle2; // index into Body.particles
     float length;    // rest length
-    bool  soft;      // false = rigid, true = scaled by cfg.stiffness
+    bool  soft;      // false = rigid, true = scaled by PHYS_STIFFNESS
 } Bone;
 
 // A self-contained physics object: particles wired up by bones and related logic.
@@ -39,7 +39,6 @@ typedef struct
     Bone          *bones;
     int            boneCount;
     BoundBox       bounds;
-    PhysicsConfig  cfg;
     float          wallImpact;   // biggest wall-impact speed seen during the last ApplyPhysics
 } Body;
 
@@ -53,6 +52,7 @@ void     ResolveCapsuleCircleCollision (Particle *a, Particle *b, Particle *c); 
 void     ResolveCapsulesCollision (Particle *a1, Particle *a2, Particle *b1, Particle *b2); // capsule a1-a2 vs capsule b1-b2
 void     ApplyBlastToBody         (Body *body, Vector2 center, float radius, float power);  // radial velocity kick (bomb)
 BoundBox ComputeBoundBox          (const Body *body);
+BoundBox AddSpeedSlack            (const Body *body, BoundBox b); // inflate a window box by ~two frames of travel
 float    ParticlesDistance        (const Particle *a, const Particle *b);
 
 #endif

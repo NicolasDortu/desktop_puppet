@@ -9,11 +9,11 @@
 //  ITEM TABLE
 // =============================================================================
 
-// Single source of truth for the shop.
-const MenuItem MENU_ITEMS[MENU_ITEM_COUNT] = {
-    {.id = MENU_ITEM_BALL, .action = "BOWLING BALL", .price = 10 },
-    {.id = MENU_ITEM_BAT,  .action = "BAT",          .price = 20 },
-    {.id = MENU_ITEM_BOMB, .action = "BOMB",         .price = 40 },
+// Single source of truth for the shop, indexed by ItemType.
+const MenuItem MENU_ITEMS[ITEM_TYPE_COUNT] = {
+    [ITEM_BALL] = { .label = "BOWLING BALL", .price = 10 },
+    [ITEM_BAT]  = { .label = "BAT",          .price = 20 },
+    [ITEM_BOMB] = { .label = "BOMB",         .price = 40 },
 };
 
 static const Color MENU_BG_COLOR     = {  40,  40,  40, 230 };
@@ -24,37 +24,25 @@ static const Color MENU_DISABLED     = { 130, 130, 130, 255 };
 //  LAYOUT
 // =============================================================================
 //
-// Items are laid out top-to-bottom, then in a new column.
-// columns = ceil(count / MENU_MAX_ROWS)
-// rows    = min(count, MENU_MAX_ROWS)
-
-static int MenuColumns(void) { return (MENU_ITEM_COUNT + MENU_MAX_ROWS - 1) / MENU_MAX_ROWS; }
-static int MenuRows   (void) { return (MENU_ITEM_COUNT < MENU_MAX_ROWS) ? MENU_ITEM_COUNT : MENU_MAX_ROWS; }
-static int MenuItemCol(int i) { return i / MENU_MAX_ROWS; }
-static int MenuItemRow(int i) { return i % MENU_MAX_ROWS; }
+// One column, one row per item.
+// ponytail: bring back multi-column layout if the shop ever outgrows the screen.
 
 void MenuWindowSize(int *width, int *height)
 {
-    *width  = MENU_WIDTH * MenuColumns();
-    *height = MENU_HEADER + MENU_ITEM_HEIGHT * MenuRows();
+    *width  = MENU_WIDTH;
+    *height = MENU_HEADER + MENU_ITEM_HEIGHT * ITEM_TYPE_COUNT;
 }
 
-// Map a window-local cursor position to the menu item id under it, or -1.
+// Map a window-local cursor position to the ItemType under it, or -1.
 int MenuPick(Vector2 mouseLocal)
 {
-    float rowY = mouseLocal.y - MENU_HEADER; // rows start below the header
-    if (rowY < 0)
+    if (mouseLocal.y < MENU_HEADER) // rows start below the header
         return -1;
 
-    int col = (int)(mouseLocal.x / MENU_WIDTH);
-    int row = (int)(rowY / MENU_ITEM_HEIGHT);
-    int i   = col * MENU_MAX_ROWS + row;
-
-    if (col >= 0 && col < MenuColumns() &&
-        row >= 0 && row < MENU_MAX_ROWS &&
-        i   >= 0 && i   < MENU_ITEM_COUNT)
-        return MENU_ITEMS[i].id;
-    return -1;
+    int row = (int)((mouseLocal.y - MENU_HEADER) / MENU_ITEM_HEIGHT);
+    if (row >= ITEM_TYPE_COUNT || mouseLocal.x < 0 || mouseLocal.x >= MENU_WIDTH)
+        return -1;
+    return row;
 }
 
 // =============================================================================
@@ -105,24 +93,23 @@ void DrawMenu(int coins)
     // -- Item rows --
     int hovered = MenuPick(GetMousePosition());
 
-    for (int i = 0; i < MENU_ITEM_COUNT; i++)
+    for (int i = 0; i < ITEM_TYPE_COUNT; i++)
     {
-        int  x          = MenuItemCol(i) * MENU_WIDTH;
-        int  y          = MENU_HEADER + MenuItemRow(i) * MENU_ITEM_HEIGHT;
+        int  y          = MENU_HEADER + i * MENU_ITEM_HEIGHT;
         int  textY      = y + (MENU_ITEM_HEIGHT - MENU_FONT_SIZE) / 2;
         bool affordable = coins >= MENU_ITEMS[i].price;
 
-        if (MENU_ITEMS[i].id == hovered && affordable)
-            DrawRectangle(x, y, MENU_WIDTH, MENU_ITEM_HEIGHT, (Color){ 255, 255, 255, 30 });
+        if (i == hovered && affordable)
+            DrawRectangle(0, y, MENU_WIDTH, MENU_ITEM_HEIGHT, (Color){ 255, 255, 255, 30 });
 
-        DrawText(MENU_ITEMS[i].action, x + MENU_PADDING, textY, MENU_FONT_SIZE,
+        DrawText(MENU_ITEMS[i].label, MENU_PADDING, textY, MENU_FONT_SIZE,
                  affordable ? RAYWHITE : MENU_DISABLED);
 
         // Price + coin glyph, right-aligned.
         char price[8];
         snprintf(price, sizeof price, "%d", MENU_ITEMS[i].price);
         int pw = MeasureText(price, MENU_FONT_SIZE);
-        int px = x + MENU_WIDTH - MENU_PADDING - 14 - 4 - pw;
+        int px = MENU_WIDTH - MENU_PADDING - 14 - 4 - pw;
         DrawText(price, px, textY, MENU_FONT_SIZE, affordable ? GOLD : MENU_DISABLED);
         DrawCoinIcon(texCoin, px + pw + 4, y + (MENU_ITEM_HEIGHT - 14) / 2, 14);
     }

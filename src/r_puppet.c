@@ -83,7 +83,7 @@ int RunPuppet(int argc, char **argv)
         {
             if (coins < COINS_MAX)
                 coins++;
-            PuppetLimb head = pup.limbs[LIMB_HEAD];
+            Particle head = pup.limbs[LIMB_HEAD];
             SpawnCoinPopup(&coinPopups, selfPid,
                            (int)head.pos.x, (int)(head.pos.y - head.radius - 20));
             hurtCooldown = HURT_COOLDOWN_FRAMES;

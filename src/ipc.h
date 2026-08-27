@@ -20,26 +20,24 @@
 //  the latest values. Torn reads are harmless because every field is rewritten
 //  the next frame.
 //
-//  This header stays platform-agnostic (no <windows.h>, which conflicts with
-//  raylib symbol names) and knows nothing about the payload struct: callers
-//  pass a byte size and cast `view` to their own type. The Win32 backend lives
-//  in ipc_win32.c and the POSIX backend in ipc_posix.c.
+//  This header avoids <windows.h> (it conflicts with raylib symbol names:
+//  CloseWindow, DrawText, Rectangle, ...), so handles are stored as `void *`.
+//  It knows nothing about the payload struct: callers pass a byte size and
+//  cast `view` to their own type. The implementation lives in ipc_win32.c.
 // =============================================================================
-
-// Handles are stored as `void *` so this header does not pull in <windows.h>.
 
 // A mapped named shared-memory region. `view` points at the shared bytes.
 typedef struct
 {
-    void  *handle; // Win32 file-mapping HANDLE / POSIX fd
-    void  *view;   // MapViewOfFile / mmap pointer (the shared payload)
+    void  *handle; // file-mapping HANDLE
+    void  *view;   // MapViewOfFile pointer (the shared payload)
     size_t size;   // size of the mapped region in bytes
 } ShmRegion;
 
 // A spawned child process. The parent keeps the handle to poll liveness.
 typedef struct
 {
-    void *hProcess; // Win32 HANDLE / POSIX pid wrapper
+    void *hProcess; // process HANDLE
     bool  running;  // false once the child has exited or was killed
 } ChildProc;
 
@@ -48,9 +46,8 @@ typedef struct
 // =============================================================================
 //
 // The whole session keys off the parent's PID: the parent passes its PID to
-// each child via argv, and both sides derive the same shared-region name from
-// it. The name format (e.g. the Win32 "Local\" prefix) is platform-specific, so
-// it lives in the backend rather than in app code.
+// each child via argv, and both sides derive the same shared-region name
+// (with its "Local\" session prefix) from it.
 
 unsigned long IpcSelfPid(void);                                  // this process's PID
 void          IpcShmName(unsigned long pid, char *out, size_t cap); // session region name for a PID

@@ -72,34 +72,19 @@ void MenuActions(Puppet *pup, Menu *menu, ItemRegistry *reg,
         return;
     }
 
-    int id = shared->menu.chosenId;
+    int id = shared->menu.chosenId; // an ItemType (MenuPick returns row = type)
     CloseMenu(menu);
     shared->menu.done = false;
 
-    switch (id)
-    {
-    case MENU_ITEM_BALL:
-    case MENU_ITEM_BAT:
-    case MENU_ITEM_BOMB:
-    {
-        int price = MENU_ITEMS[id].price; // table order matches the id enum
-        if (*coins < price)
-            break;
+    if (id < 0 || id >= ITEM_TYPE_COUNT || *coins < MENU_ITEMS[id].price)
+        return;
 
-        // Spawn the bought item just to the right of the puppet's bounding
-        // box; only a successful spawn costs coins.
-        int      x    = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
-        int      y    = (int)(pup->body.bounds.y);
-        ItemType type = (id == MENU_ITEM_BALL) ? ITEM_BALL
-                      : (id == MENU_ITEM_BAT)  ? ITEM_BAT
-                                               : ITEM_BOMB;
-        if (SpawnItem(reg, shared, parentPid, type, x, y))
-            *coins -= price;
-        break;
-    }
-    default:
-        break;
-    }
+    // Spawn the bought item just to the right of the puppet's bounding box;
+    // only a successful spawn costs coins.
+    int x = (int)(pup->body.bounds.x + pup->body.bounds.w + 50);
+    int y = (int)(pup->body.bounds.y);
+    if (SpawnItem(reg, shared, parentPid, (ItemType)id, x, y))
+        *coins -= MENU_ITEMS[id].price;
 }
 
 // Right-click the puppet to open (or close) the menu in its own window.

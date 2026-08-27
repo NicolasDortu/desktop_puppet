@@ -10,8 +10,6 @@
 //  LIMBS
 // =============================================================================
 
-typedef Particle PuppetLimb;
-
 // Index of each limb within Puppet.limbs[].
 typedef enum LimbId
 {
@@ -27,8 +25,6 @@ typedef enum LimbId
 // =============================================================================
 //  BONES
 // =============================================================================
-
-typedef Bone PuppetBone;
 
 // Index of each bone within Puppet.bones[]. Hard bones fix each limb's
 // distance to the body; the soft head diagonals are the springs that let
@@ -59,11 +55,11 @@ typedef enum BoneId
 
 typedef struct Puppet
 {
-    float      radius;                       // overall puppet size; limb radii are fractions of this
-    Body       body;                         // physics state (particles + bones + bounds + cfg)
-    PuppetLimb limbs[LIMB_COUNT];            // backing storage for body.particles
-    PuppetBone bones[BONE_COUNT];            // backing storage for body.bones
-    Color      limbColors[LIMB_COUNT];       // render-only sibling array
+    float    radius;                 // overall puppet size; limb radii are fractions of this
+    Body     body;                   // physics state (particles + bones + bounds)
+    Particle limbs[LIMB_COUNT];      // backing storage for body.particles
+    Bone     bones[BONE_COUNT];      // backing storage for body.bones
+    Color    limbColors[LIMB_COUNT]; // render-only sibling array
 } Puppet;
 
 // =============================================================================
