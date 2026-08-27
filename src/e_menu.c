@@ -11,9 +11,10 @@
 
 // Single source of truth for the shop, indexed by ItemType.
 const MenuItem MENU_ITEMS[ITEM_TYPE_COUNT] = {
-    [ITEM_BALL] = { .label = "BOWLING BALL", .price = 10 },
-    [ITEM_BAT]  = { .label = "BAT",          .price = 20 },
-    [ITEM_BOMB] = { .label = "BOMB",         .price = 40 },
+    [ITEM_BALL]    = { .label = "BOWLING BALL",   .price = 10 },
+    [ITEM_BAT]     = { .label = "BAT",            .price = 20 },
+    [ITEM_BOMB]    = { .label = "BOMB",           .price = 30 },
+    [ITEM_MISSILE] = { .label = "GUIDED MISSILE", .price = 35 },
 };
 
 static const Color MENU_BG_COLOR     = {  40,  40,  40, 230 };

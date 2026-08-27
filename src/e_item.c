@@ -35,9 +35,10 @@ typedef struct
 } ItemSpec;
 
 static const ItemSpec ITEM_SPECS[ITEM_TYPE_COUNT] = {
-    [ITEM_BALL] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =  0.0f, .punch = 3.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
-    [ITEM_BAT]  = { .shape = ITEM_SHAPE_CAPSULE, .radius =  11.0f, .length = 186.0f, .punch = 1.0f, .fillColor = BROWN, .outlineColor = BLACK },
-    [ITEM_BOMB] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 22.0f, .length =  0.0f, .punch = 1.0f, .fillColor = BLACK, .outlineColor = DARKGRAY },
+    [ITEM_BALL]    = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 30.0f, .length =   0.0f, .punch = 3.0f, .fillColor = BLACK,     .outlineColor = DARKGRAY },
+    [ITEM_BAT]     = { .shape = ITEM_SHAPE_CAPSULE, .radius = 11.0f, .length = 186.0f, .punch = 1.0f, .fillColor = BROWN,     .outlineColor = BLACK    },
+    [ITEM_BOMB]    = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 22.0f, .length =   0.0f, .punch = 1.0f, .fillColor = BLACK,     .outlineColor = DARKGRAY },
+    [ITEM_MISSILE] = { .shape = ITEM_SHAPE_CIRCLE,  .radius = 13.0f, .length =   0.0f, .punch = 1.0f, .fillColor = LIGHTGRAY, .outlineColor = DARKGRAY },
 };
 
 ItemShape ItemShapeOf(ItemType type)
@@ -108,7 +109,84 @@ BoundBox ItemWindowBounds(const Item *item)
         b.y -= room;
         b.h += room;
     }
+    else if (item->type == ITEM_MISSILE)
+    {
+        // Nose, fins and flame overdraw the collision circle in any direction.
+        float room = 1.6f * ITEM_SPECS[ITEM_MISSILE].radius;
+        b.x -= room;
+        b.y -= room;
+        b.w += 2.0f * room;
+        b.h += 2.0f * room;
+    }
     return AddSpeedSlack(&item->body, b);
+}
+
+// Cartoon bomb at center `c` with body radius `r`: shaded iron sphere with a
+// sheen and glint, metal collar, drooping fuse, blinking spark star. Stays
+// within the fuse headroom ItemWindowBounds reserves (r above the body).
+static void DrawBomb(Vector2 c, float r)
+{
+    // -- Fuse: droops from the collar up-right to the spark (drawn first so
+    // the collar covers its base) --
+    Vector2 base = { c.x, c.y - 1.05f * r };
+    Vector2 tip  = { c.x + 0.55f * r, c.y - 1.55f * r };
+    DrawLineBezier(base, tip, 0.14f * r, (Color){ 150, 110, 70, 255 });
+
+    // -- Body: dark sphere, soft up-left sheen, bright glint, crisp rim --
+    DrawCircleV(c, r, (Color){ 35, 38, 46, 255 });
+    DrawCircleGradient((int)(c.x - 0.30f * r), (int)(c.y - 0.35f * r), 0.75f * r,
+                       (Color){ 120, 130, 150, 140 }, (Color){ 120, 130, 150, 0 });
+    DrawCircleV((Vector2){ c.x - 0.38f * r, c.y - 0.42f * r }, 0.16f * r,
+                (Color){ 225, 232, 245, 190 });
+    DrawCircleLines((int)c.x, (int)c.y, r, BLACK);
+
+    // -- Metal collar the fuse plugs into --
+    Rectangle cap = { c.x - 0.22f * r, c.y - 1.12f * r, 0.44f * r, 0.28f * r };
+    DrawRectangleRounded(cap, 0.6f, 6, (Color){ 105, 112, 125, 255 });
+
+    // -- Spark: blinking 4-point star with a hot core --
+    bool  on = ((int)(GetTime() * 10.0) % 2) == 0;
+    Color sc = on ? (Color){ 255, 230, 90, 255 } : (Color){ 255, 150, 40, 255 };
+    float s  = (on ? 0.30f : 0.22f) * r;
+    float d  = s * 0.6f;
+    DrawLineEx((Vector2){ tip.x - s, tip.y }, (Vector2){ tip.x + s, tip.y }, 0.09f * r, sc);
+    DrawLineEx((Vector2){ tip.x, tip.y - s }, (Vector2){ tip.x, tip.y + s }, 0.09f * r, sc);
+    DrawLineEx((Vector2){ tip.x - d, tip.y - d }, (Vector2){ tip.x + d, tip.y + d }, 0.07f * r, sc);
+    DrawLineEx((Vector2){ tip.x - d, tip.y + d }, (Vector2){ tip.x + d, tip.y - d }, 0.07f * r, sc);
+    DrawCircleV(tip, 0.13f * r, (Color){ 255, 255, 210, 255 });
+}
+
+// Cartoon missile at center `c` (collision radius `r`), pointing along its
+// velocity `v`: gray body capsule, red rounded nose and swept fins, cockpit
+// dot, flickering exhaust flame. Circles and thick lines only (no winding
+// worries), all sized as fractions of r.
+static void DrawMissile(Vector2 c, Vector2 v, float r)
+{
+    float   ang = atan2f(v.y, v.x); // zero velocity at spawn: points right, fine
+    Vector2 f   = { cosf(ang), sinf(ang) }; // forward
+    Vector2 s   = { -f.y, f.x };            // side
+
+    // -- Exhaust: flickering two-tone flame behind the tail --
+    bool  hot = ((int)(GetTime() * 20.0) % 2) == 0;
+    float fl  = (hot ? 0.55f : 0.40f) * r;
+    DrawCircleV((Vector2){ c.x - f.x * 2.0f * r, c.y - f.y * 2.0f * r }, fl, ORANGE);
+    DrawCircleV((Vector2){ c.x - f.x * 1.7f * r, c.y - f.y * 1.7f * r }, fl * 0.7f, YELLOW);
+
+    // -- Fins: two swept-back strokes at the tail --
+    Vector2 tail = { c.x - f.x * 1.1f * r, c.y - f.y * 1.1f * r };
+    for (int e = -1; e <= 1; e += 2)
+    {
+        Vector2 tip = { tail.x - f.x * 0.9f * r + s.x * 1.2f * r * e,
+                        tail.y - f.y * 0.9f * r + s.y * 1.2f * r * e };
+        DrawLineEx(tail, tip, 0.45f * r, RED);
+    }
+
+    // -- Body: gray capsule, red rounded nose, cockpit dot --
+    Vector2 noseB = { c.x + f.x * 1.2f * r, c.y + f.y * 1.2f * r };
+    DrawLineEx(tail, noseB, 1.4f * r, (Color){ 200, 205, 215, 255 });
+    DrawCircleV(noseB, 0.7f * r, RED);
+    DrawCircleV((Vector2){ c.x + f.x * 0.5f * r, c.y + f.y * 0.5f * r }, 0.28f * r,
+                (Color){ 60, 70, 90, 255 });
 }
 
 // Drawn relative to the window box origin (the window is positioned
@@ -151,6 +229,18 @@ void DrawItem(const Item *item)
         else
             DrawLineEx(a, c, 2 * spec.radius, spec.fillColor); // skin missing on disk
     }
+    else if (item->type == ITEM_BOMB)
+    {
+        Vector2 c = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
+        DrawBomb(c, spec.radius);
+    }
+    else if (item->type == ITEM_MISSILE)
+    {
+        Vector2 c = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
+        Vector2 v = { item->particles[0].pos.x - item->particles[0].oldPos.x,
+                      item->particles[0].pos.y - item->particles[0].oldPos.y };
+        DrawMissile(c, v, spec.radius);
+    }
     else // ITEM_SHAPE_CIRCLE
     {
         Vector2 c = { item->particles[0].pos.x - ox, item->particles[0].pos.y - oy };
@@ -174,14 +264,6 @@ void DrawItem(const Item *item)
                 Vector2 p = { c.x + h.x * cs - h.y * sn, c.y + h.x * sn + h.y * cs };
                 DrawCircleV(p, spec.radius * 0.12f, DARKGRAY);
             }
-        }
-        else if (item->type == ITEM_BOMB) // cartoon bomb: fuse with a blinking spark
-        {
-            Vector2 top = { c.x + spec.radius * 0.20f, c.y - spec.radius * 0.95f };
-            Vector2 tip = { top.x + spec.radius * 0.35f, top.y - spec.radius * 0.55f };
-            DrawLineEx(top, tip, 4.0f, BROWN);
-            bool sparkOn = ((int)(GetTime() * 8.0) % 2) == 0;
-            DrawCircleV(tip, 5.0f, sparkOn ? YELLOW : ORANGE);
         }
     }
 }

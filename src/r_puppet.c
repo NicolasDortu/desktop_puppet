@@ -51,9 +51,8 @@ int RunPuppet(int argc, char **argv)
 
     SetTargetFPS(TARGET_FPS);
 
-    unsigned int lastBlast    = shared->blast.seq;
-    int          coins        = 0; // shop balance; this process is the only writer
-    int          hurtCooldown = 0;
+    unsigned int lastBlast = shared->blast.seq;
+    int          coins     = 0; // shop balance; this process is the only writer
 
     // -- Main loop --
     while (!WindowShouldClose())
@@ -75,10 +74,11 @@ int RunPuppet(int argc, char **argv)
         EnforcePuppetPose(&pup);
         float itemPush = UpdateItems(&items, shared, &pup);
 
-        // -- Coins: getting hurt pays out (hard wall crash or a solid item hit) --
-        if (hurtCooldown > 0)
-            hurtCooldown--;
-        if (hurtCooldown == 0 &&
+        // -- Coins: getting hurt pays out (hard wall crash or a solid item hit).
+        // hurtFrames doubles as the coin cooldown and the X-eyes timer.
+        if (pup.hurtFrames > 0)
+            pup.hurtFrames--;
+        if (pup.hurtFrames == 0 &&
             (pup.body.wallImpact > HURT_WALL_SPEED || itemPush > HURT_ITEM_PUSH))
         {
             if (coins < COINS_MAX)
@@ -86,7 +86,7 @@ int RunPuppet(int argc, char **argv)
             Particle head = pup.limbs[LIMB_HEAD];
             SpawnCoinPopup(&coinPopups, selfPid,
                            (int)head.pos.x, (int)(head.pos.y - head.radius - 20));
-            hurtCooldown = HURT_COOLDOWN_FRAMES;
+            pup.hurtFrames = HURT_COOLDOWN_FRAMES;
         }
         shared->coins = coins;
 

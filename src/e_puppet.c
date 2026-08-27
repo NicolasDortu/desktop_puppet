@@ -229,9 +229,9 @@ void DrawPuppet(const Puppet *pup)
             DrawCircleV(local, limb.radius, pup->limbColors[i]); // skin missing on disk
     }
 
-    // -- Eyes: two black dots riding on the head. The puppet has no stored
-    // orientation, so we derive "up" from the body->head axis; the eyes swing
-    // around the head center as the puppet tumbles.
+    // -- Eyes: ride on the head — X eyes while hurt, plain dots otherwise.
+    // The puppet has no stored orientation, so "up" comes from the body->head
+    // axis; the eyes swing around the head center as the puppet tumbles.
     Vector2 headPos = pup->limbs[LIMB_HEAD].pos;
     Vector2 bodyPos = pup->limbs[LIMB_BODY].pos;
     float   headR   = pup->limbs[LIMB_HEAD].radius;
@@ -241,13 +241,28 @@ void DrawPuppet(const Puppet *pup)
     {
         Vector2 up   = { (headPos.x - bodyPos.x) / len, (headPos.y - bodyPos.y) / len };
         Vector2 side = { -up.y, up.x };
+        bool    hurt = pup->hurtFrames > 0;
+
         for (int s = -1; s <= 1; s += 2)
         {
             Vector2 eye = {
                 headPos.x - winOriginX + up.x * headR * 0.20f + side.x * headR * 0.35f * s,
                 headPos.y - winOriginY + up.y * headR * 0.20f + side.y * headR * 0.35f * s,
             };
-            DrawCircleV(eye, headR * 0.13f, BLACK);
+            float er = headR * 0.13f;
+
+            if (hurt) // X eyes, tilted with the head
+            {
+                float   k  = er * 1.1f;
+                Vector2 d1 = { (up.x + side.x) * k, (up.y + side.y) * k };
+                Vector2 d2 = { (up.x - side.x) * k, (up.y - side.y) * k };
+                DrawLineEx((Vector2){ eye.x - d1.x, eye.y - d1.y },
+                           (Vector2){ eye.x + d1.x, eye.y + d1.y }, er * 0.55f, BLACK);
+                DrawLineEx((Vector2){ eye.x - d2.x, eye.y - d2.y },
+                           (Vector2){ eye.x + d2.x, eye.y + d2.y }, er * 0.55f, BLACK);
+            }
+            else // calm: plain dots
+                DrawCircleV(eye, er, BLACK);
         }
     }
 }

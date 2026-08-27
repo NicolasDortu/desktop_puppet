@@ -16,6 +16,7 @@ typedef enum ItemType
     ITEM_BALL,
     ITEM_BAT,
     ITEM_BOMB,
+    ITEM_MISSILE,
     ITEM_TYPE_COUNT
 } ItemType;
 
@@ -27,8 +28,15 @@ typedef enum ItemType
 // process to its own particles (see BlastSlot in r_sync.h).
 #define BOMB_FUSE_TIME    3.0   // seconds from spawn to detonation
 #define BOMB_BOOM_TIME    0.45  // seconds the explosion visual lasts
-#define BOMB_BLAST_RADIUS 260.0f // px reach of the blast
-#define BOMB_BLAST_POWER  22.0f  // px/frame velocity kick at the center
+#define BOMB_BLAST_RADIUS 320.0f // px reach of the blast
+#define BOMB_BLAST_POWER  90.0f  // px/frame velocity kick at the center
+
+// Guided missile: cruises toward the cursor and detonates (same blast as the
+// bomb) on the first thing it touches — screen border or puppet — or when the
+// fuel runs out.
+#define MISSILE_SPEED     16.0f // px/frame cruise speed
+#define MISSILE_ACCEL     0.9f  // px/frame² steering acceleration toward the cursor
+#define MISSILE_FUEL_TIME 8.0   // seconds of flight before it self-detonates
 
 // Physical shape of an item, used to pick the right collision routine.
 typedef enum ItemShape

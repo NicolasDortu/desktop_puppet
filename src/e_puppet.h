@@ -60,6 +60,7 @@ typedef struct Puppet
     Particle limbs[LIMB_COUNT];      // backing storage for body.particles
     Bone     bones[BONE_COUNT];      // backing storage for body.bones
     Color    limbColors[LIMB_COUNT]; // render-only sibling array
+    int      hurtFrames;             // >0 while recently hurt (X eyes + coin cooldown), ticks down
 } Puppet;
 
 // =============================================================================

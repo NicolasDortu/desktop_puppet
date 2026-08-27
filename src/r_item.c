@@ -107,6 +107,22 @@ static void CollideItemWithItem(Particle *mine, ItemType myType,
 // Returns the biggest displacement an item inflicted on a limb (0 = no contact).
 static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppet *pup)
 {
+    // Item velocity (particle average), for transferring momentum on contact.
+    // A DRAGGED item transfers nothing: shoving the puppet with a held ball
+    // is free, so rolling/throwing it is the rewarded move.
+    int   n       = (ItemShapeOf(type) == ITEM_SHAPE_CAPSULE) ? 2 : 1;
+    bool  dragged = false;
+    float ivx = 0.0f, ivy = 0.0f;
+    for (int i = 0; i < n; i++)
+    {
+        dragged = dragged || slot->particles[i].isDragged;
+        ivx += slot->particles[i].pos.x - slot->particles[i].oldPos.x;
+        ivy += slot->particles[i].pos.y - slot->particles[i].oldPos.y;
+    }
+    ivx /= n;
+    ivy /= n;
+
+    float punch   = ItemPunchOf(type);
     float maxPush = 0.0f;
     for (int j = 0; j < LIMB_COUNT; j++)
     {
@@ -123,13 +139,21 @@ static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppe
         if (push > maxPush)
             maxPush = push;
 
-        // Heavy items hit harder: the resolve above only displaced the limb
-        // by its share of the overlap; amplify the implicit velocity it gained
-        float punch = ItemPunchOf(type);
-        if (push > 0.0f && punch > 1.0f)
+        if (push > 0.0f && !dragged)
         {
-            pup->limbs[j].oldPos.x -= dx * (punch - 1.0f);
-            pup->limbs[j].oldPos.y -= dy * (punch - 1.0f);
+            // The positional resolve only shares the overlap, which barely
+            // moves the puppet (a rolling ball just nudged it). Real impact =
+            // amplified overlap share + the item's own speed INTO the limb,
+            // both scaled by punch and injected as Verlet velocity. A resting
+            // item has ~zero speed, so this adds nothing to settled contact.
+            float nx     = dx / push;
+            float ny     = dy / push;
+            float vAlong = ivx * nx + ivy * ny;      // item speed toward the limb
+            if (vAlong < 0.0f) vAlong = 0.0f;        // never a pull
+
+            float kick = push * (punch - 1.0f) + vAlong * punch;
+            pup->limbs[j].oldPos.x -= nx * kick;
+            pup->limbs[j].oldPos.y -= ny * kick;
         }
     }
     return maxPush;
@@ -193,6 +217,55 @@ void CloseAllItems(ItemRegistry *reg)
 //  CHILD SIDE
 // =============================================================================
 
+// One flight step of the guided missile: accelerate toward the cursor (capped
+// at cruise speed), then check for impact. Returns true when the missile hit
+// a screen border or a puppet limb and must detonate. No gravity, no drag, no
+// bouncing — it is powered flight until something stops it.
+static bool UpdateMissile(Item *item, const SharedState *shared, BoundBox screen)
+{
+    Particle *p  = &item->particles[0];
+    float     vx = p->pos.x - p->oldPos.x;
+    float     vy = p->pos.y - p->oldPos.y;
+
+    // -- Steer toward the cursor --
+    float cx, cy;
+    IpcCursorPos(&cx, &cy);
+    float dx = cx - p->pos.x;
+    float dy = cy - p->pos.y;
+    float d  = sqrtf(dx * dx + dy * dy);
+    if (d > 1.0f)
+    {
+        vx += dx / d * MISSILE_ACCEL;
+        vy += dy / d * MISSILE_ACCEL;
+    }
+    float speed = sqrtf(vx * vx + vy * vy);
+    if (speed > MISSILE_SPEED)
+    {
+        vx *= MISSILE_SPEED / speed;
+        vy *= MISSILE_SPEED / speed;
+    }
+
+    p->oldPos = p->pos;
+    p->pos.x += vx;
+    p->pos.y += vy;
+
+    // -- Impact: screen border --
+    if (p->pos.x - p->radius < screen.x || p->pos.x + p->radius > screen.x + screen.w ||
+        p->pos.y - p->radius < screen.y || p->pos.y + p->radius > screen.y + screen.h)
+        return true;
+
+    // -- Impact: puppet limb --
+    for (int i = 0; i < shared->limbCount; i++)
+    {
+        float lx = shared->limbs[i].pos.x - p->pos.x;
+        float ly = shared->limbs[i].pos.y - p->pos.y;
+        float r  = shared->limbs[i].radius + p->radius;
+        if (lx * lx + ly * ly < r * r)
+            return true;
+    }
+    return false;
+}
+
 int RunItem(int argc, char **argv)
 {
     // -- Parse argv: main.exe item <type> <x> <y> <parentPid> <slot> --
@@ -225,48 +298,63 @@ int RunItem(int argc, char **argv)
 
     unsigned int lastBlast = shared->blast.seq; // ignore blasts from before we spawned
 
-    // Items are temporary: a bomb burns its short fuse, everything else
-    // despawns after ITEM_LIFETIME (the window just closes; the parent reaps).
-    double dieAt = GetTime() + ((type == ITEM_BOMB) ? BOMB_FUSE_TIME : ITEM_LIFETIME);
+    // Items are temporary: a bomb burns its short fuse, a missile its fuel,
+    // everything else despawns after ITEM_LIFETIME (the window just closes;
+    // the parent reaps).
+    double dieAt = GetTime() + ((type == ITEM_BOMB)    ? BOMB_FUSE_TIME
+                              : (type == ITEM_MISSILE) ? MISSILE_FUEL_TIME
+                                                       : ITEM_LIFETIME);
 
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
     {
         if (GetTime() >= dieAt)
-            break; // lifetime over: bombs detonate below, others just exit
+            break; // lifetime over: bombs/missiles detonate below, others just exit
 
-        // Input
-        DragBody(&item.body);
-
-        // A bomb went off somewhere: kick our own particles (every process
-        // applies the blast to the particles it owns).
-        if (shared->blast.seq != lastBlast)
+        if (type == ITEM_MISSILE)
         {
-            lastBlast = shared->blast.seq;
-            ApplyBlastToBody(&item.body, shared->blast.pos, shared->blast.radius, shared->blast.power);
+            // Guided flight: no dragging, no gravity, no peer collisions —
+            // it flies at the cursor and detonates on the first contact.
+            bool impact = UpdateMissile(&item, shared, screen);
+            item.body.bounds = ComputeBoundBox(&item.body);
+            if (impact)
+                break; // detonation below
         }
-
-        // Simulation: collide against a local copy of each limb (we must not
-        // write into shared->limbs, which the puppet owns).
-        ApplyPhysics(&item.body, screen);
-        for (int i = 0; i < shared->limbCount; i++)
+        else
         {
-            Particle limb = shared->limbs[i];
-            CollideItemWithCircle(item.particles, type, &limb);
-        }
+            // Input
+            DragBody(&item.body);
 
-        // Collide against every other live item's published snapshot (local
-        // copy; each peer applies its own share from its own process).
-        for (int s = 0; s < MAX_ITEMS; s++)
-        {
-            if (s == slot || !shared->items[s].active)
-                continue;
-            ItemSlot peer = shared->items[s];
-            CollideItemWithItem(item.particles, type, peer.particles, peer.type);
-        }
+            // A bomb went off somewhere: kick our own particles (every process
+            // applies the blast to the particles it owns).
+            if (shared->blast.seq != lastBlast)
+            {
+                lastBlast = shared->blast.seq;
+                ApplyBlastToBody(&item.body, shared->blast.pos, shared->blast.radius, shared->blast.power);
+            }
 
-        // Collisions moved particles after ApplyPhysics computed the bounds; refresh.
-        item.body.bounds = ComputeBoundBox(&item.body);
+            // Simulation: collide against a local copy of each limb (we must not
+            // write into shared->limbs, which the puppet owns).
+            ApplyPhysics(&item.body, screen);
+            for (int i = 0; i < shared->limbCount; i++)
+            {
+                Particle limb = shared->limbs[i];
+                CollideItemWithCircle(item.particles, type, &limb);
+            }
+
+            // Collide against every other live item's published snapshot (local
+            // copy; each peer applies its own share from its own process).
+            for (int s = 0; s < MAX_ITEMS; s++)
+            {
+                if (s == slot || !shared->items[s].active)
+                    continue;
+                ItemSlot peer = shared->items[s];
+                CollideItemWithItem(item.particles, type, peer.particles, peer.type);
+            }
+
+            // Collisions moved particles after ApplyPhysics computed the bounds; refresh.
+            item.body.bounds = ComputeBoundBox(&item.body);
+        }
 
         // Publish our particles for the puppet and the other items to collide against.
         for (int i = 0; i < item.body.particleCount; i++)
@@ -282,8 +370,10 @@ int RunItem(int argc, char **argv)
         EndDrawing();
     }
 
-    // -- Bomb: detonate (only when the fuse ran out, not on manual close) --
-    if (type == ITEM_BOMB && !WindowShouldClose() && IpcProcessAlive(parentH))
+    // -- Bomb/missile: detonate (fuse or fuel ran out, or the missile hit
+    // something — not on manual close) --
+    if ((type == ITEM_BOMB || type == ITEM_MISSILE) &&
+        !WindowShouldClose() && IpcProcessAlive(parentH))
     {
         Vector2 c = item.particles[0].pos;
 

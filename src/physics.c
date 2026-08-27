@@ -285,28 +285,39 @@ static void UpdateBones(Body *body)
 //  BLAST
 // =============================================================================
 
-// Kick every particle within `radius` of `center` straight away from it.
-// `power` is the velocity injected at the center, fading linearly to zero at
-// the edge. Verlet: pushing oldPos back adds velocity without moving the
-// particle; the next integration step turns it into motion.
+// Kick the whole body away from `center`. `power` is the velocity injected at
+// the center, fading linearly to zero at `radius`. The kick direction and fade
+// come from the body's CENTER, and every particle gets the same kick: pushing
+// each particle along its own radial direction made near-center blasts cancel
+// through the bones (limbs shoved apart, puppet barely moved) — one uniform
+// kick translates the whole body, so it actually flies. Verlet: pushing oldPos
+// back adds velocity without moving the particle.
 void ApplyBlastToBody(Body *body, Vector2 center, float radius, float power)
 {
+    float cx   = body->bounds.x + body->bounds.w / 2.0f;
+    float cy   = body->bounds.y + body->bounds.h / 2.0f;
+    float dx   = cx - center.x;
+    float dy   = cy - center.y;
+    float dist = sqrtf(dx * dx + dy * dy);
+    if (dist >= radius)
+        return;
+
+    // Blast right on top of us: no direction to derive, kick straight up.
+    float nx = 0.0f, ny = -1.0f;
+    if (dist > 1.0f)
+    {
+        nx = dx / dist;
+        ny = dy / dist;
+    }
+
+    float kick = power * (1.0f - dist / radius);
     for (int i = 0; i < body->particleCount; i++)
     {
         Particle *p = &body->particles[i];
         if (p->isDragged)
             continue;
-
-        float dx    = p->pos.x - center.x;
-        float dy    = p->pos.y - center.y;
-        float dist2 = dx * dx + dy * dy;
-        if (dist2 >= radius * radius || dist2 < 1e-6f)
-            continue;
-
-        float dist = sqrtf(dist2);
-        float kick = power * (1.0f - dist / radius) / dist; // /dist normalizes (dx,dy)
-        p->oldPos.x -= dx * kick;
-        p->oldPos.y -= dy * kick;
+        p->oldPos.x -= nx * kick;
+        p->oldPos.y -= ny * kick;
     }
 }
 

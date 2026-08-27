@@ -177,3 +177,15 @@ bool IpcProcessAlive(void *handle)
         return false;
     return WaitForSingleObject((HANDLE)handle, 0) == WAIT_TIMEOUT;
 }
+
+// =============================================================================
+//  CURSOR
+// =============================================================================
+
+void IpcCursorPos(float *x, float *y)
+{
+    POINT p = {0};
+    GetCursorPos(&p);
+    *x = (float)p.x;
+    *y = (float)p.y;
+}

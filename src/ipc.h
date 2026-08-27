@@ -84,4 +84,13 @@ void IpcKillChild(ChildProc *c);    // terminate if alive, then close the handle
 void *IpcOpenProcess(unsigned long pid); // NULL on failure
 bool  IpcProcessAlive(void *handle);      // true while the process is running
 
+// =============================================================================
+//  CURSOR
+// =============================================================================
+
+// Screen-space cursor position. Not IPC, but this is the only TU that can
+// include <windows.h>: raylib's GetMousePosition only updates while the
+// cursor is over our own window, which is useless for the guided missile.
+void IpcCursorPos(float *x, float *y);
+
 #endif
