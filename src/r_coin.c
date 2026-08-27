@@ -54,6 +54,7 @@ int RunCoin(int argc, char **argv)
     int           posY      = (argc > 3) ? atoi(argv[3]) : 100;
     unsigned long parentPid = (argc > 4) ? strtoul(argv[4], NULL, 10) : 0;
 
+    SetConfigFlags(FLAG_WINDOW_UNFOCUSED);
     InitOverlayWindow(COIN_DIAMETER, COIN_DIAMETER);
     SetTargetFPS(TARGET_FPS);
 

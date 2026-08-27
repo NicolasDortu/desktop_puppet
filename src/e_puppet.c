@@ -109,6 +109,37 @@ void CreatePuppet(Puppet *pup, float radius, Vector2 startPos)
 }
 
 // =============================================================================
+//  WINDOW BOX
+// =============================================================================
+
+// Window box for the puppet: the body bounds inflated by speed-proportional
+// slack. SetWindowPosition takes effect with about a frame of lag, so at high
+// speed the drawing would land outside the real window and limbs would clip
+// away mid-throw; the slack keeps everything inside. Pure function of the
+// puppet state, so UpdateWindow and DrawPuppet compute the identical box.
+BoundBox PuppetWindowBounds(const Puppet *pup)
+{
+    float maxV2 = 0.0f;
+    for (int i = 0; i < LIMB_COUNT; i++)
+    {
+        float vx = pup->limbs[i].pos.x - pup->limbs[i].oldPos.x;
+        float vy = pup->limbs[i].pos.y - pup->limbs[i].oldPos.y;
+        float v2 = vx * vx + vy * vy;
+        if (v2 > maxV2)
+            maxV2 = v2;
+    }
+
+    float slack = 4.0f + 2.0f * sqrtf(maxV2); // ~two frames of travel headroom
+
+    BoundBox b = pup->body.bounds;
+    b.x -= slack;
+    b.y -= slack;
+    b.w += 2.0f * slack;
+    b.h += 2.0f * slack;
+    return b;
+}
+
+// =============================================================================
 //  POSE ENFORCEMENT
 // =============================================================================
 
@@ -137,11 +168,25 @@ void EnforcePuppetPose(Puppet *pup)
         { LIMB_FOOT_L, -1.0f }, { LIMB_FOOT_R, 1.0f },
     };
 
+    // A limb is only corrected when CALM relative to the body. Reflecting a
+    // fast limb reverses its lateral momentum every frame, which turned the
+    // body-head axis into an invisible wall: a puppet thrown by an arm or a
+    // foot stopped dead mid-air. Wrong sides in flight are invisible (paired
+    // limbs are identical); the guard cleans up once the motion settles.
+    const float calmSpeed = 2.0f; // px/frame of limb speed relative to the body
+    Particle    bodyP     = pup->limbs[LIMB_BODY];
+    Vector2     bodyVel   = { bodyP.pos.x - bodyP.oldPos.x, bodyP.pos.y - bodyP.oldPos.y };
+
     for (int i = 0; i < 4; i++)
     {
         Particle *p = &pup->limbs[SIDES[i].limb];
         if (p->isDragged)
             continue; // respect the user's grab; corrected on release
+
+        float rvx = (p->pos.x - p->oldPos.x) - bodyVel.x;
+        float rvy = (p->pos.y - p->oldPos.y) - bodyVel.y;
+        if (rvx * rvx + rvy * rvy > calmSpeed * calmSpeed)
+            continue; // limb in motion: leave it alone this frame
 
         float d = (p->pos.x - body.x) * n.x + (p->pos.y - body.y) * n.y;
         if (d * SIDES[i].side >= -1.0f)
@@ -179,9 +224,11 @@ void DrawPuppet(const Puppet *pup)
 
     ClearBackground(BLANK);
 
-    BoundBox b = pup->body.bounds;
-    float winOriginX = b.x;
-    float winOriginY = b.y;
+    // Same box UpdateWindow used this frame (the window sits WINDOW_MARGIN
+    // up-left of it, like the items).
+    BoundBox b = PuppetWindowBounds(pup);
+    float winOriginX = b.x - WINDOW_MARGIN;
+    float winOriginY = b.y - WINDOW_MARGIN;
 
     for (int i = 0; i < LIMB_COUNT; i++)
     {

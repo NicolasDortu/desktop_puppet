@@ -90,7 +90,7 @@ int RunPuppet(int argc, char **argv)
         }
         shared->coins = coins;
 
-        UpdateWindow(pup.body.bounds);
+        UpdateWindow(PuppetWindowBounds(&pup));
 
         // Render
         BeginDrawing();

@@ -98,7 +98,9 @@ void CreateItem(Item *item, ItemType type, Vector2 startPos)
 // =============================================================================
 
 // Window box for an item: body bounds plus headroom for decorations drawn
-// outside the physics shape (the bomb's fuse sticks out of the top).
+// outside the physics shape (the bomb's fuse sticks out of the top), plus
+// speed-proportional slack — SetWindowPosition lags about a frame behind, so
+// without slack a fast-thrown item draws outside its real window and clips.
 BoundBox ItemWindowBounds(const Item *item)
 {
     BoundBox b = item->body.bounds;
@@ -108,6 +110,22 @@ BoundBox ItemWindowBounds(const Item *item)
         b.y -= room;
         b.h += room;
     }
+
+    float maxV2 = 0.0f;
+    for (int i = 0; i < item->body.particleCount; i++)
+    {
+        float vx = item->particles[i].pos.x - item->particles[i].oldPos.x;
+        float vy = item->particles[i].pos.y - item->particles[i].oldPos.y;
+        float v2 = vx * vx + vy * vy;
+        if (v2 > maxV2)
+            maxV2 = v2;
+    }
+    float slack = 4.0f + 2.0f * sqrtf(maxV2); // ~two frames of travel headroom
+
+    b.x -= slack;
+    b.y -= slack;
+    b.w += 2.0f * slack;
+    b.h += 2.0f * slack;
     return b;
 }
 

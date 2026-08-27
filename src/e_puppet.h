@@ -74,6 +74,7 @@ typedef struct Puppet
 // internal Body keeps valid pointers to the caller's `limbs`/`bones` arrays.
 void CreatePuppet(Puppet *pup, float radius, Vector2 startPos);
 void EnforcePuppetPose(Puppet *pup); // keep limbs on their own side (see e_puppet.c)
+BoundBox PuppetWindowBounds(const Puppet *pup);
 void DrawPuppet (const Puppet *pup);
 
 
