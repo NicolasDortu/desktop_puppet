@@ -99,9 +99,22 @@ void ToggleMenu(Puppet *pup, Menu *menu, SharedState *shared, unsigned long pare
         return;
     }
 
-    // Location of the menu, next to the puppet.
+    // Location of the menu, next to the puppet — kept fully on screen: flip
+    // to the puppet's left when the right side doesn't fit, then clamp.
+    int width, height;
+    MenuWindowSize(&width, &height);
+    BoundBox screen = GetScreenArea();
+
     int x = (int)(pup->body.bounds.x + pup->body.bounds.w + MENU_PADDING);
     int y = (int)pup->body.bounds.y;
+    if (x + width > screen.x + screen.w)
+        x = (int)(pup->body.bounds.x) - width - MENU_PADDING;
+
+    if (x < screen.x)                       x = (int)screen.x;
+    if (x + width  > screen.x + screen.w)   x = (int)(screen.x + screen.w) - width;
+    if (y + height > screen.y + screen.h)   y = (int)(screen.y + screen.h) - height;
+    if (y < screen.y)                       y = (int)screen.y;
+
     OpenMenu(menu, shared, parentPid, x, y);
 }
 
@@ -141,9 +154,15 @@ int RunMenu(int argc, char **argv)
 
     while (!WindowShouldClose() && IpcProcessAlive(parentH) && chosen == -1)
     {
-        // -- Input: click selects an item --
+        // -- Input: click selects an item; the footer toggles sound instead --
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-            chosen = MenuPick(GetMousePosition());
+        {
+            Vector2 mouse = GetMousePosition();
+            if (MenuPickSound(mouse))
+                shared->muted = !shared->muted; // menu stays open
+            else
+                chosen = MenuPick(mouse);
+        }
 
         // -- Auto-close when the user clicks outside the menu window --
         if (frame > MENU_FOCUS_GRACE_FRAMES && !IsWindowFocused())
@@ -151,7 +170,7 @@ int RunMenu(int argc, char **argv)
 
         // -- Render --
         BeginDrawing();
-            DrawMenu(shared->coins);
+            DrawMenu(shared->coins, shared->muted);
         EndDrawing();
 
         frame++;

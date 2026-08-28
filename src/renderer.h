@@ -13,5 +13,6 @@ void      InitOverlayWindow(int width, int height);
 BoundBox  GetScreenArea(void); // usable desktop area (screen minus taskbar)
 void      UpdateWindow(BoundBox b);
 Texture2D LoadAssetTexture(const char *file);
+Sound     LoadAssetSound(const char *file); // needs InitAudioDevice() first
 
 #endif

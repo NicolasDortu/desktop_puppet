@@ -49,6 +49,12 @@ int RunPuppet(int argc, char **argv)
     ItemRegistry items      = {0};
     CoinPopups   coinPopups = {0};
 
+    // This process plays the coin/hurt sounds (bat/ball hit sounds live in
+    // UpdateItems' collision path, same process).
+    InitAudioDevice();
+    Sound sndCash = LoadAssetSound("s_cash.mp3");
+    Sound sndOuch = LoadAssetSound("s_ouch.mp3");
+
     SetTargetFPS(TARGET_FPS);
 
     unsigned int lastBlast = shared->blast.seq;
@@ -57,6 +63,9 @@ int RunPuppet(int argc, char **argv)
     // -- Main loop --
     while (!WindowShouldClose())
     {
+        // Sound toggle from the shop applies to this process's audio.
+        SetMasterVolume(shared->muted ? 0.0f : 1.0f);
+
         // Input
         DragBody(&pup.body);
         ToggleMenu(&pup, &menu, shared, selfPid);
@@ -87,6 +96,9 @@ int RunPuppet(int argc, char **argv)
             SpawnCoinPopup(&coinPopups, selfPid,
                            (int)head.pos.x, (int)(head.pos.y - head.radius - 20));
             pup.hurtFrames = HURT_COOLDOWN_FRAMES;
+            if (GetRandomValue(0, 2) == 0) // every hurt was grating: ouch ~1 in 3
+                PlaySound(sndOuch);
+            PlaySound(sndCash);
         }
         shared->coins = coins;
 

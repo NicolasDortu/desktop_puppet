@@ -53,3 +53,11 @@ Texture2D LoadAssetTexture(const char *file)
         SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR); // smooth when scaled to limb size
     return tex;
 }
+
+// Load a sound effect from the assets/ folder. The caller must have called
+// InitAudioDevice() first. A missing file yields an empty Sound; raylib's
+// Play/Stop/IsSoundPlaying no-op safely on it.
+Sound LoadAssetSound(const char *file)
+{
+    return LoadSound(TextFormat("%s../assets/%s", GetApplicationDirectory(), file));
+}

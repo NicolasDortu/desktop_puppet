@@ -32,7 +32,8 @@ extern const MenuItem MENU_ITEMS[ITEM_TYPE_COUNT];
 // =============================================================================
 
 void MenuWindowSize(int *width, int *height);  // pixel size of the shop window
-int  MenuPick(Vector2 mouseLocal);             // ItemType under the cursor, or -1
-void DrawMenu(int coins);                      // render the shop (balance from the parent)
+int  MenuPick(Vector2 mouseLocal);             // ItemType under the cursor, or -1 (footer excluded)
+bool MenuPickSound(Vector2 mouseLocal);        // true if the cursor is on the sound-toggle footer
+void DrawMenu(int coins, bool muted);          // render the shop (balance + mute from shared state)
 
 #endif

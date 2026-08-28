@@ -49,6 +49,7 @@ typedef struct SharedState
     MenuSlot  menu;              // menu child -> puppet
     BlastSlot blast;             // exploding bomb -> everyone
     int       coins;             // puppet -> menu child (shop balance display)
+    bool      muted;             // shop sound toggle -> every audio-playing process
 } SharedState;
 
 // =============================================================================

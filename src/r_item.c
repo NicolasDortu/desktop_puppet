@@ -107,6 +107,20 @@ static void CollideItemWithItem(Particle *mine, ItemType myType,
 // Returns the biggest displacement an item inflicted on a limb (0 = no contact).
 static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppet *pup)
 {
+    // Hit sounds, loaded lazily (this path only runs in the puppet process,
+    // which owns an audio device). IsSoundPlaying doubles as the rate limit.
+    static Sound sndBonk, sndBowling;
+    static bool  sndLoaded = false;
+    if (!sndLoaded)
+    {
+        sndBonk    = LoadAssetSound("s_bonk.mp3");
+        sndBowling = LoadAssetSound("s_bowling.mp3");
+        sndLoaded  = true;
+    }
+
+    // Item speed that counts as a real hit (sound-worthy), px/frame.
+    const float hitSpeed = 3.0f;
+
     // Item velocity (particle average), for transferring momentum on contact.
     // A DRAGGED item transfers nothing: shoving the puppet with a held ball
     // is free, so rolling/throwing it is the rewarded move.
@@ -139,21 +153,34 @@ static float CollideItemAgainstPuppet(const ItemSlot *slot, ItemType type, Puppe
         if (push > maxPush)
             maxPush = push;
 
-        if (push > 0.0f && !dragged)
+        if (push > 0.0f)
         {
-            // The positional resolve only shares the overlap, which barely
-            // moves the puppet (a rolling ball just nudged it). Real impact =
-            // amplified overlap share + the item's own speed INTO the limb,
-            // both scaled by punch and injected as Verlet velocity. A resting
-            // item has ~zero speed, so this adds nothing to settled contact.
             float nx     = dx / push;
             float ny     = dy / push;
             float vAlong = ivx * nx + ivy * ny;      // item speed toward the limb
             if (vAlong < 0.0f) vAlong = 0.0f;        // never a pull
 
-            float kick = push * (punch - 1.0f) + vAlong * punch;
-            pup->limbs[j].oldPos.x -= nx * kick;
-            pup->limbs[j].oldPos.y -= ny * kick;
+            // The positional resolve only shares the overlap, which barely
+            // moves the puppet (a rolling ball just nudged it). Real impact =
+            // amplified overlap share + the item's own speed INTO the limb,
+            // both scaled by punch and injected as Verlet velocity. A resting
+            // item has ~zero speed, so this adds nothing to settled contact.
+            if (!dragged)
+            {
+                float kick = push * (punch - 1.0f) + vAlong * punch;
+                pup->limbs[j].oldPos.x -= nx * kick;
+                pup->limbs[j].oldPos.y -= ny * kick;
+            }
+
+            // Hit sounds: bat bonks on any solid hit (swinging = dragging, so
+            // no dragged gate); the ball only when rolling/thrown freely.
+            if (vAlong > hitSpeed)
+            {
+                if (type == ITEM_BAT && !IsSoundPlaying(sndBonk))
+                    PlaySound(sndBonk);
+                else if (type == ITEM_BALL && !dragged && !IsSoundPlaying(sndBowling))
+                    PlaySound(sndBowling);
+            }
         }
     }
     return maxPush;
@@ -298,6 +325,23 @@ int RunItem(int argc, char **argv)
 
     unsigned int lastBlast = shared->blast.seq; // ignore blasts from before we spawned
 
+    // Only the noisy children pay for an audio device: the bomb hisses and
+    // detonates, the missile roars in a loop and detonates.
+    Sound sndMissile = {0}, sndExplosion = {0}, sndFuze = {0};
+    if (type == ITEM_BOMB || type == ITEM_MISSILE)
+    {
+        InitAudioDevice();
+        SetMasterVolume(shared->muted ? 0.0f : 1.0f);
+        sndExplosion = LoadAssetSound("s_explosion.mp3");
+        if (type == ITEM_MISSILE)
+            sndMissile = LoadAssetSound("s_missile.mp3");
+        if (type == ITEM_BOMB)
+        {
+            sndFuze = LoadAssetSound("s_fuze.mp3");
+            PlaySound(sndFuze); // the fuse starts hissing as the bomb appears
+        }
+    }
+
     // Items are temporary: a bomb burns its short fuse, a missile its fuel,
     // everything else despawns after ITEM_LIFETIME (the window just closes;
     // the parent reaps).
@@ -308,11 +352,18 @@ int RunItem(int argc, char **argv)
     // -- Main loop --
     while (!WindowShouldClose() && IpcProcessAlive(parentH))
     {
+        if (IsAudioDeviceReady())
+            SetMasterVolume(shared->muted ? 0.0f : 1.0f);
+
         if (GetTime() >= dieAt)
             break; // lifetime over: bombs/missiles detonate below, others just exit
 
         if (type == ITEM_MISSILE)
         {
+            // Engine roar loops for the missile's whole life.
+            if (!IsSoundPlaying(sndMissile))
+                PlaySound(sndMissile);
+
             // Guided flight: no dragging, no gravity, no peer collisions —
             // it flies at the cursor and detonates on the first contact.
             bool impact = UpdateMissile(&item, shared, screen);
@@ -377,6 +428,10 @@ int RunItem(int argc, char **argv)
     {
         Vector2 c = item.particles[0].pos;
 
+        StopSound(sndMissile); // roar/hiss give way to the boom
+        StopSound(sndFuze);
+        PlaySound(sndExplosion);
+
         shared->items[slot].active = false; // the bomb itself is gone
 
         // Publish the blast: parameters first, seq bump last (readers key on seq).
@@ -398,6 +453,17 @@ int RunItem(int argc, char **argv)
                 break;
             BeginDrawing();
                 DrawExplosion(local, R, progress);
+            EndDrawing();
+        }
+
+        // Let the boom ring out: exiting now would cut the sound with the
+        // process. Shrink the (invisible, topmost, click-catching) window to a
+        // dot first so it doesn't block desktop clicks while the sound plays.
+        UpdateWindow((BoundBox){ c.x, c.y, 1, 1 });
+        while (IsSoundPlaying(sndExplosion) && !WindowShouldClose() && IpcProcessAlive(parentH))
+        {
+            BeginDrawing();
+                ClearBackground(BLANK);
             EndDrawing();
         }
     }
