@@ -1,4 +1,4 @@
-# Desktop Puppet
+# Desktop Buddy/Puppet
 
 A desktop toy in the spirit of *Interactive Buddy*: a ragdoll puppet lives on
 your desktop in a transparent, always-on-top window. Drag it around, throw it

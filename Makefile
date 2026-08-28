@@ -32,13 +32,13 @@ clean:
 	rm -rf bin/assets
 
 # Zip main.exe (renamed to a friendly name) + its assets into
-# dist/DesktopPuppet.zip: both sit flat at the top of the folder, so a player
+# dist/DesktopBuddy.zip: both sit flat at the top of the folder, so a player
 # just unzips and double-clicks -- ready for itch.io.
 dist: release
 	rm -rf dist
-	mkdir -p dist/DesktopPuppet
-	cp "bin/main.exe" "dist/DesktopPuppet/Desktop Buddy.exe"
-	cp -r assets dist/DesktopPuppet/
-	rm -f dist/DesktopPuppet/assets/icon.rc dist/DesktopPuppet/assets/icon.ico # build inputs; icon is embedded in the exe
-	cp itch.toml dist/DesktopPuppet/
-	powershell -NoProfile -Command "Compress-Archive -Path 'dist/DesktopPuppet' -DestinationPath 'dist/DesktopPuppet.zip' -Force"
+	mkdir -p dist/DesktopBuddy
+	cp "bin/main.exe" "dist/DesktopBuddy/Desktop Buddy.exe"
+	cp -r assets dist/DesktopBuddy/
+	rm -f dist/DesktopBuddy/assets/icon.rc dist/DesktopBuddy/assets/icon.ico # build inputs; icon is embedded in the exe
+	cp itch.toml dist/DesktopBuddy/
+	powershell -NoProfile -Command "Compress-Archive -Path 'dist/DesktopBuddy' -DestinationPath 'dist/DesktopBuddy.zip' -Force"

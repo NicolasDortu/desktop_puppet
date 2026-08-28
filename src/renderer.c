@@ -10,7 +10,7 @@
 void InitOverlayWindow(int width, int height)
 {
     SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST | FLAG_WINDOW_TRANSPARENT);
-    InitWindow(width, height, "Desktop Puppet");
+    InitWindow(width, height, "Desktop Buddy");
 }
 
 // Work-area query from GLFW, which raylib links in statically. GLFW owns the
