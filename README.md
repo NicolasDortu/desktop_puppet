@@ -17,6 +17,29 @@ make
 bin\main.exe
 ```
 
+## Distributing (itch.io)
+
+```
+make dist
+```
+
+Builds a release binary (optimized, `-mwindows` so no console window pops up,
+symbols stripped) and zips it to `dist/DesktopPuppet.zip`: `Desktop Buddy.exe`
+and `assets/` sitting flat next to each other, ready to upload as a Windows
+download. No installer, no DLLs to bundle — raylib is statically linked, and
+the only DLL dependencies are ones every Windows install already has
+(GDI32, KERNEL32, msvcrt, SHELL32, USER32, WINMM).
+
+`LoadAssetTexture`/`LoadAssetSound` (`renderer.c`) resolve `assets/` next to
+the *running exe itself* (`GetApplicationDirectory()`), not the working
+directory — so the exe can be renamed or moved anywhere as long as `assets/`
+stays beside it. The dev build keeps that true too: every `make` mirrors the
+tracked `assets/` into `bin/assets/` (`sync-assets`), so `bin\main.exe` finds
+its assets the same way a shipped build does.
+
+`itch.toml` at the repo root just names the play executable for itch's
+desktop app; a manual browser download/unzip doesn't need it at all.
+
 ## How to play
 
 | Action | Effect |

@@ -36,28 +36,48 @@ BoundBox GetScreenArea(void)
                        .h = (float)GetMonitorHeight(GetCurrentMonitor()) };
 }
 
-// Update the window size and position to the BoundBox + Margin.
+// Update the window size and position to the BoundBox + Margin. Skips the
+// Win32 calls when nothing changed: a settled puppet would otherwise force
+// two SetWindowPos round-trips (and DWM work) per frame at idle. One window
+// per process, so process-local statics are the whole cache.
 void UpdateWindow(BoundBox b)
 {
-    SetWindowSize    ((int)b.w + 2 * WINDOW_MARGIN, (int)b.h + 2 * WINDOW_MARGIN);
-    SetWindowPosition((int)b.x - WINDOW_MARGIN    , (int)b.y - WINDOW_MARGIN);
+    int w = (int)b.w + 2 * WINDOW_MARGIN;
+    int h = (int)b.h + 2 * WINDOW_MARGIN;
+    int x = (int)b.x - WINDOW_MARGIN;
+    int y = (int)b.y - WINDOW_MARGIN;
+
+    static int lastW = -1, lastH = -1, lastX = -1, lastY = -1;
+    if (w != lastW || h != lastH)
+    {
+        SetWindowSize(w, h);
+        lastW = w;
+        lastH = h;
+    }
+    if (x != lastX || y != lastY)
+    {
+        SetWindowPosition(x, y);
+        lastX = x;
+        lastY = y;
+    }
 }
 
-// Load a skin from the assets/ folder (sibling of bin/, resolved from the exe
-// location so it works whatever the working directory is). Returns id == 0 if
-// the file is missing; callers fall back to flat shapes.
+// Load a skin from the assets/ folder next to the exe (resolved from the exe's
+// own location, so it works wherever the exe is regardless of the working
+// directory). Returns id == 0 if the file is missing; callers fall back to
+// flat shapes.
 Texture2D LoadAssetTexture(const char *file)
 {
-    Texture2D tex = LoadTexture(TextFormat("%s../assets/%s", GetApplicationDirectory(), file));
+    Texture2D tex = LoadTexture(TextFormat("%sassets/%s", GetApplicationDirectory(), file));
     if (tex.id)
         SetTextureFilter(tex, TEXTURE_FILTER_BILINEAR); // smooth when scaled to limb size
     return tex;
 }
 
-// Load a sound effect from the assets/ folder. The caller must have called
-// InitAudioDevice() first. A missing file yields an empty Sound; raylib's
-// Play/Stop/IsSoundPlaying no-op safely on it.
+// Load a sound effect from the assets/ folder next to the exe. The caller
+// must have called InitAudioDevice() first. A missing file yields an empty
+// Sound; raylib's Play/Stop/IsSoundPlaying no-op safely on it.
 Sound LoadAssetSound(const char *file)
 {
-    return LoadSound(TextFormat("%s../assets/%s", GetApplicationDirectory(), file));
+    return LoadSound(TextFormat("%sassets/%s", GetApplicationDirectory(), file));
 }
